@@ -16,6 +16,7 @@
 package io.github.mcollovati.springbinder;
 
 import jakarta.validation.ValidatorFactory;
+import java.util.Objects;
 
 import com.vaadin.flow.data.binder.Binder;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -40,6 +41,7 @@ public class SpringBinderConfiguration {
     <BEAN> SpringBinder<BEAN> createBinder(DependencyDescriptor descriptor, ConversionService conversionService) {
         Class<BEAN> beanType =
                 (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
+        Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
         return new SpringBinder<>(beanType, conversionService);
     }
 
@@ -51,6 +53,7 @@ public class SpringBinderConfiguration {
             DependencyDescriptor descriptor, ConversionService conversionService, ValidatorFactory validatorFactory) {
         Class<BEAN> beanType =
                 (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
+        Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
         return new SpringBeanValidationBinder<>(beanType, conversionService, validatorFactory);
     }
 

@@ -16,6 +16,7 @@
 package io.github.mcollovati.springbinder;
 
 import java.util.Date;
+import java.util.Optional;
 
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValueContext;
@@ -113,5 +114,77 @@ class SpringBinderTest {
         TestField<String> date = new TestField<>(String.class, null);
         TestField<String> team = new TestField<>(String.class, null);
         TestField<String> duration = new TestField<>(String.class, null);
+    }
+
+    @Test
+    void conversionServiceReturnsNull_handlesGracefully() {
+        ConversionService service = mock(ConversionService.class);
+        when(service.canConvert(String.class, Duration.class)).thenReturn(true);
+        when(service.canConvert(Duration.class, String.class)).thenReturn(true);
+        when(service.convert(anyString(), eq(Duration.class))).thenReturn(null);
+
+        Binder<RaceResult> binder = createBinder(RaceResult.class, service);
+        Form form = new Form();
+        binder.bindInstanceFields(form);
+
+        RaceResult result = new RaceResult("TEAM1", 3, new Duration(120, "M"));
+        binder.setBean(result);
+
+        Assertions.assertNull(form.duration.getValue());
+    }
+
+    @Test
+    void conversionServiceNullPresentationValue_handlesGracefully() {
+        ConversionService service = mock(ConversionService.class);
+        when(service.canConvert(String.class, Duration.class)).thenReturn(true);
+        when(service.canConvert(Duration.class, String.class)).thenReturn(true);
+        when(service.convert(any(Duration.class), eq(String.class))).thenReturn(null);
+
+        Binder<RaceResult> binder = createBinder(RaceResult.class, service);
+        Form form = new Form();
+        binder.bindInstanceFields(form);
+
+        Duration duration = new Duration(120, "M");
+        RaceResult result = new RaceResult("TEAM1", 3, duration);
+        binder.setBean(result);
+
+        Assertions.assertNull(form.duration.getValue());
+    }
+
+    @Test
+    void nullConversionService_throwsNullPointerException() {
+        Assertions.assertThrows(NullPointerException.class, () -> new SpringBinder<>(RaceResult.class, null));
+    }
+
+    @Test
+    void nullFallbackConverterFactory_throwsNullPointerException() {
+        ConversionService service = mock(ConversionService.class);
+        Assertions.assertThrows(NullPointerException.class, () -> new SpringConverterFactory(service, null));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void nullPresentationType_throwsNullPointerException() {
+        SpringConverterFactory factory = new SpringConverterFactory(
+                mock(ConversionService.class), new com.vaadin.flow.data.converter.ConverterFactory() {
+                    @Override
+                    public Optional newInstance(Class presentationType, Class modelType) {
+                        return Optional.empty();
+                    }
+                });
+        Assertions.assertThrows(NullPointerException.class, () -> factory.newInstance(null, String.class));
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void nullModelType_throwsNullPointerException() {
+        SpringConverterFactory factory = new SpringConverterFactory(
+                mock(ConversionService.class), new com.vaadin.flow.data.converter.ConverterFactory() {
+                    @Override
+                    public Optional newInstance(Class presentationType, Class modelType) {
+                        return Optional.empty();
+                    }
+                });
+        Assertions.assertThrows(NullPointerException.class, () -> factory.newInstance(String.class, null));
     }
 }

@@ -37,7 +37,7 @@ class SpringConverterFactory implements ConverterFactory {
      * Creates a new {@link ConverterFactory} based on the provided Spring {@link ConversionService},
      * delegating to the given fallback {@link ConverterFactory} if conversion is not supported.
      *
-     * @param service the Spring {@link ConversionService}, not {@literal nukk}.
+     * @param service the Spring {@link ConversionService}, not {@literal null}.
      * @param fallback the fallback {@link ConverterFactory}, not {@literal null}. {@link
      *     com.vaadin.flow.data.converter.DefaultConverterFactory#INSTANCE} can be used as default.
      */
@@ -54,8 +54,14 @@ class SpringConverterFactory implements ConverterFactory {
         Objects.requireNonNull(modelType, "modelType");
         if (service.canConvert(presentationType, modelType) && service.canConvert(modelType, presentationType)) {
             return Optional.of(Converter.from(
-                    o -> modelType.cast(this.service.convert(o, modelType)),
-                    o -> presentationType.cast(this.service.convert(o, presentationType)),
+                    o -> {
+                        Object converted = this.service.convert(o, modelType);
+                        return converted != null ? modelType.cast(converted) : null;
+                    },
+                    o -> {
+                        Object converted = this.service.convert(o, presentationType);
+                        return converted != null ? presentationType.cast(converted) : null;
+                    },
                     Throwable::getMessage));
         }
         return fallback.newInstance(presentationType, modelType);
