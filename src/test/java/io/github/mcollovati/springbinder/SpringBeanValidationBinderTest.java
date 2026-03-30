@@ -1,0 +1,110 @@
+/*
+ * Copyright 2026 Marco Collovati
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.github.mcollovati.springbinder;
+
+import jakarta.validation.ValidatorFactory;
+import java.util.List;
+
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.BinderValidationStatus;
+import com.vaadin.flow.data.binder.BindingValidationStatus;
+import io.github.mcollovati.springbinder.data.Duration;
+import io.github.mcollovati.springbinder.data.RaceResult;
+import io.github.mcollovati.springbinder.fields.TestField;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.convert.ConversionService;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+@ContextConfiguration(classes = {SpringBeanValidationBinderTest.Config.class, SpringBinderConfiguration.class})
+@ExtendWith({SpringExtension.class})
+public class SpringBeanValidationBinderTest extends SpringBinderTest {
+
+    @TestConfiguration
+    static class Config {
+
+        @Bean
+        LocalValidatorFactoryBean validatorFactoryBean() {
+            return new LocalValidatorFactoryBean();
+        }
+
+        @Bean
+        Converter<String, Duration> stringToDurationConverter() {
+            return Duration::valueOf;
+        }
+
+        @Bean
+        Converter<Duration, String> durationToStringConverter() {
+            return Duration::toString;
+        }
+    }
+
+    @Autowired
+    ValidatorFactory validatorFactory;
+
+    @Override
+    protected <BEAN> Binder<BEAN> createBinder(Class<BEAN> type, ConversionService service) {
+
+        return new SpringBeanValidationBinder<>(type, service, validatorFactory);
+    }
+
+    @Test
+    public void beanBound_setInvalidFieldValue_validationError(
+            @Autowired SpringBeanValidationBinder<RaceResult> binder) {
+        Duration duration = new Duration(120, "M");
+        RaceResult result = new RaceResult("TEAM1", 3, duration);
+        binder.setBean(result);
+
+        SpringBinderTest.Form form = new SpringBinderTest.Form();
+        binder.bindInstanceFields(form);
+        binder.setBean(result);
+
+        form.team.setValue("TE"); // too short
+
+        Assertions.assertEquals("TEAM1", result.getTeam());
+        assertInvalid(form.team, binder, "size must be between 3 and 10");
+    }
+
+    @Test
+    public void beanNotBound_setInvalidFieldValue_validationError(
+            @Autowired SpringBeanValidationBinder<RaceResult> binder) {
+        Duration duration = new Duration(120, "M");
+        RaceResult result = new RaceResult("TEAM1", 3, duration);
+        binder.setBean(result);
+
+        SpringBinderTest.Form form = new SpringBinderTest.Form();
+        binder.bindInstanceFields(form);
+
+        form.team.setValue("TOO_LONG_TEAM_NAME"); // too long
+
+        assertInvalid(form.team, binder, "size must be between 3 and 10");
+    }
+
+    private void assertInvalid(TestField field, Binder<?> binder, String message) {
+        BinderValidationStatus<?> status = binder.validate();
+        List<BindingValidationStatus<?>> errors = status.getFieldValidationErrors();
+        Assertions.assertEquals(1, errors.size());
+        Assertions.assertSame(field, errors.get(0).getField());
+        Assertions.assertEquals(message, errors.get(0).getMessage().get());
+    }
+}
