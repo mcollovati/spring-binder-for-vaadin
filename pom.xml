@@ -9,6 +9,22 @@
     <version>1.0.0-SNAPSHOT</version>
     <name>Spring Binder Add-on for Vaadin</name>
     <description>A Vaadin Flow Binder implementation integrating Spring converters</description>
+    <url>https://github.com/mcollovati/spring-binder-for-vaadin</url>
+
+    <developers>
+        <developer>
+            <id>mcollovati</id>
+            <name>Marco Collovati</name>
+            <email>mcollovati@gmail.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/mcollovati/spring-binder-for-vaadin.git</connection>
+        <developerConnection>scm:git:git@github.com:mcollovati/spring-binder-for-vaadin.git</developerConnection>
+        <url>https://github.com/mcollovati/spring-binder-for-vaadin</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <properties>
 
@@ -25,7 +41,6 @@
 
         <maven-surefire-plugin.version>3.5.5</maven-surefire-plugin.version>
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
-        <maven-assembly-plugin.version>3.8.0</maven-assembly-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
 
@@ -232,6 +247,19 @@
 
     <build>
         <defaultGoal>spring-boot:run</defaultGoal>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <!-- Ship the license inside the jar -->
+            <resource>
+                <directory>${project.basedir}</directory>
+                <targetPath>META-INF</targetPath>
+                <includes>
+                    <include>LICENSE</include>
+                </includes>
+            </resource>
+        </resources>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -248,11 +276,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>${maven-javadoc-plugin.version}</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-assembly-plugin</artifactId>
-                    <version>${maven-assembly-plugin.version}</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -348,27 +371,11 @@
 
     <profiles>
         <profile>
-            <id>directory</id>
+            <!-- Artifacts required to publish to Maven Central. The Vaadin Directory
+                 picks new versions up from Central automatically, so no zip is built. -->
+            <id>release</id>
             <build>
                 <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <configuration>
-                            <appendAssemblyId>false</appendAssemblyId>
-                            <descriptors>
-                                <descriptor>src/main/assembly/assembly.xml</descriptor>
-                            </descriptors>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                                <phase>install</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-source-plugin</artifactId>
