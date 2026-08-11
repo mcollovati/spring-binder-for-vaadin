@@ -197,6 +197,45 @@ same conversion order, same `ValidatorFactory` — so the factory is also the wa
 to build binders in tests, instead of calling a constructor and getting
 different conversion behaviour than production.
 
+## Session serialization
+
+**The binders, `SpringBinderFactory` and `SpringBinderProvider` are not
+serializable.** Keep them out of a Vaadin component's serialized state by marking
+the field `transient`:
+
+```java
+@Route("product")
+public class ProductView extends VerticalLayout {
+
+    private final transient SpringBeanValidationBinder<Product> binder;
+
+    public ProductView(SpringBeanValidationBinder<Product> binder) {
+        this.binder = binder;
+        ...
+    }
+}
+```
+
+This only matters if the session is ever serialized — a clustered deployment, or a
+container that passivates sessions to disk. Vaadin's own `Binder` is serializable,
+but these binders hold a Spring `ConversionService`, and the validating one a
+`ValidatorFactory`, neither of which is. Writing a session that reaches one fails
+with a `NotSerializableException` naming the service or the factory.
+
+That failure is deliberate, and it is the reason the add-on does not simply mark
+those fields `transient` itself. Doing so would let the session be written and then
+restore a binder with no conversion service, failing later and far from the cause.
+Resolving the beans again on the other side is not sound either: Spring's
+serialization support for a bean factory resolves through a registry private to a
+single JVM and **falls back to an empty bean factory** when the entry is missing, so
+a session restored on another node would quietly convert through the wrong service
+and lose every `Converter` bean the application registered.
+
+A `transient` binder is `null` after the session is restored, and its bindings are
+gone with it, so the view has to build its form again — from a fresh injection or
+through `SpringBinderFactory`. There is no way to bring the bindings back; a form
+whose state must survive passivation has to be rebuilt from the bean.
+
 ## Conversion precedence
 
 By default Vaadin's own converters are used for the type pairs Vaadin knows, and
