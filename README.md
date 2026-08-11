@@ -68,11 +68,11 @@ public class RaceResultView extends VerticalLayout {
 ```
 
 The bean type comes from the generic parameter of the injection point, so nothing
-passes it explicitly. `getBeanType()` reads it back, which is the way to assert an
+passes it explicitly. `findBeanType()` reads it back, which is the way to assert an
 injected binder really was built for the type the view expects:
 
 ```java
-assertThat(binder.getBeanType()).contains(RaceResult.class);
+assertThat(binder.findBeanType()).contains(RaceResult.class);
 ```
 
 It is empty only for a binder created from a `PropertySet`, where there is no bean
@@ -168,7 +168,7 @@ public class AdminView extends VerticalLayout {
     }
 
     private Component createCategoryEditor(Category category) {
-        SpringBeanValidationBinder<Category> binder = binders.getBeanValidation();
+        SpringBeanValidationBinder<Category> binder = binders.createBeanValidation();
         ...
     }
 }
@@ -254,10 +254,20 @@ Spring, which is the point of the add-on.
 To let a Spring converter override a pair Vaadin also handles, flip the order:
 
 ```properties
-vaadin-spring-binder.conversion.order=spring-first
+springbinder.conversion.order=spring-first
 ```
 
-or per binder:
+or for one binder only, through the factory or a provider, which keeps the rest of
+the wiring — same `ConversionService`, same `ValidatorFactory` — intact:
+
+```java
+binders.create(RaceResult.class, ConversionOrder.SPRING_FIRST);
+binders.createBeanValidation(RaceResult.class, ConversionOrder.SPRING_FIRST);
+```
+
+`getConversionOrder()` reports the configured default that the overloads without an
+order use. Constructing a binder directly also works, but then the conversion
+service is whatever you pass rather than the application's:
 
 ```java
 new SpringBinder<>(RaceResult.class, conversionService, ConversionOrder.SPRING_FIRST);

@@ -153,10 +153,15 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
      * auto-configuration resolves it from the generic parameter of the injection point rather than
      * from an argument the caller passes.
      *
+     * <p>Named {@code findBeanType} rather than {@code getBeanType} on purpose. Vaadin's {@link Binder}
+     * keeps its bean type in a private field today, and the day it exposes it the natural signature is
+     * {@code Class<BEAN> getBeanType()} — which an {@link Optional} returning method of the same name
+     * could not override, so this add-on would stop compiling against a new Vaadin.
+     *
      * @return the bean type, or an empty optional when the binder was created from a {@link
-     *     PropertySet} and no bean type is known.
+     *     PropertySet}, which does not carry one.
      */
-    public Optional<Class<BEAN>> getBeanType() {
+    public Optional<Class<BEAN>> findBeanType() {
         return Optional.ofNullable(beanType);
     }
 

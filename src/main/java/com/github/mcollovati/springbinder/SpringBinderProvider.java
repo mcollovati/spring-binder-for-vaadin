@@ -33,7 +33,7 @@ package com.github.mcollovati.springbinder;
  *     }
  *
  *     private Component createCategoryEditor(Category category) {
- *         SpringBeanValidationBinder<Category> binder = binders.getBeanValidation();
+ *         SpringBeanValidationBinder<Category> binder = binders.createBeanValidation();
  *         ...
  *     }
  * }
@@ -56,9 +56,68 @@ public interface SpringBinderProvider<BEAN> {
     /**
      * Creates a binder for the bean type of this provider.
      *
+     * <p>This is the method every other {@code create} overload ultimately calls, so an implementation
+     * only has to provide this one, {@link #createBeanValidation(boolean, ConversionOrder)} and {@link
+     * #getConversionOrder()}.
+     *
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
+     *     {@literal null}.
      * @return a new binder, never {@literal null}.
      */
-    SpringBinder<BEAN> get();
+    SpringBinder<BEAN> create(boolean scanNestedDefinitions, ConversionOrder conversionOrder);
+
+    /**
+     * Creates a binder for the bean type of this provider that also applies JSR-303 constraints.
+     *
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
+     *     {@literal null}.
+     * @return a new binder, never {@literal null}.
+     * @throws IllegalStateException if no JSR-303 provider is available.
+     */
+    SpringBeanValidationBinder<BEAN> createBeanValidation(
+            boolean scanNestedDefinitions, ConversionOrder conversionOrder);
+
+    /**
+     * Returns the conversion order binders get when a call does not name one, which is the configured
+     * {@code springbinder.conversion.order}.
+     *
+     * @return the default conversion order, never {@literal null}.
+     */
+    ConversionOrder getConversionOrder();
+
+    /**
+     * Creates a binder for the bean type of this provider.
+     *
+     * @return a new binder, never {@literal null}.
+     */
+    default SpringBinder<BEAN> create() {
+        return create(false, getConversionOrder());
+    }
+
+    /**
+     * Creates a binder for the bean type of this provider, optionally scanning nested properties so
+     * that {@code bindInstanceFields} can bind them.
+     *
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well.
+     * @return a new binder, never {@literal null}.
+     */
+    default SpringBinder<BEAN> create(boolean scanNestedDefinitions) {
+        return create(scanNestedDefinitions, getConversionOrder());
+    }
+
+    /**
+     * Creates a binder for the bean type of this provider, overriding the configured conversion order
+     * for this binder only.
+     *
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
+     *     {@literal null}.
+     * @return a new binder, never {@literal null}.
+     */
+    default SpringBinder<BEAN> create(ConversionOrder conversionOrder) {
+        return create(false, conversionOrder);
+    }
 
     /**
      * Creates a binder for the bean type of this provider that also applies JSR-303 constraints.
@@ -66,5 +125,32 @@ public interface SpringBinderProvider<BEAN> {
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
      */
-    SpringBeanValidationBinder<BEAN> getBeanValidation();
+    default SpringBeanValidationBinder<BEAN> createBeanValidation() {
+        return createBeanValidation(false, getConversionOrder());
+    }
+
+    /**
+     * Creates a binder for the bean type of this provider that also applies JSR-303 constraints,
+     * optionally scanning nested properties so that {@code bindInstanceFields} can bind them.
+     *
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well.
+     * @return a new binder, never {@literal null}.
+     * @throws IllegalStateException if no JSR-303 provider is available.
+     */
+    default SpringBeanValidationBinder<BEAN> createBeanValidation(boolean scanNestedDefinitions) {
+        return createBeanValidation(scanNestedDefinitions, getConversionOrder());
+    }
+
+    /**
+     * Creates a binder for the bean type of this provider that also applies JSR-303 constraints,
+     * overriding the configured conversion order for this binder only.
+     *
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
+     *     {@literal null}.
+     * @return a new binder, never {@literal null}.
+     * @throws IllegalStateException if no JSR-303 provider is available.
+     */
+    default SpringBeanValidationBinder<BEAN> createBeanValidation(ConversionOrder conversionOrder) {
+        return createBeanValidation(false, conversionOrder);
+    }
 }

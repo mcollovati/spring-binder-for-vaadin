@@ -307,7 +307,7 @@ class SpringBinderAutoConfigurationTest {
 
         contextRunner
                 .withUserConfiguration(BinderHolder.class)
-                .withPropertyValues("vaadin-spring-binder.conversion.order=spring-first")
+                .withPropertyValues("springbinder.conversion.order=spring-first")
                 .run(context -> assertThat(datePresentation(context.getBean(BinderHolder.class).binder))
                         .isEqualTo(new Date(0).toString()));
     }

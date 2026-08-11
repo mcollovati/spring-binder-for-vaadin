@@ -93,13 +93,63 @@ class SpringBinderFactoryTest {
                 .isEqualTo(new StringToDateConverter().convertToPresentation(new Date(0), new ValueContext())));
 
         contextRunner
-                .withPropertyValues("vaadin-spring-binder.conversion.order=spring-first")
+                .withPropertyValues("springbinder.conversion.order=spring-first")
                 .run(context -> {
                     SpringBinderFactory factory = context.getBean(SpringBinderFactory.class);
                     assertThat(datePresentation(factory.create(RaceResult.class)))
                             .isEqualTo(new Date(0).toString());
                     assertThat(datePresentation(factory.createBeanValidation(RaceResult.class)))
                             .isEqualTo(new Date(0).toString());
+                });
+    }
+
+    /**
+     * Without an overload taking a conversion order, the only way to get a binder that converts
+     * differently from the configured default would be to construct one by hand — which loses the
+     * conversion service and validator factory the factory exists to supply.
+     */
+    @Test
+    void factory_conversionOrderCanBeOverriddenPerBinder() {
+        contextRunner.run(context -> {
+            SpringBinderFactory factory = context.getBean(SpringBinderFactory.class);
+            assertThat(factory.getConversionOrder()).isEqualTo(ConversionOrder.VAADIN_FIRST);
+
+            String vaadinConverted = new StringToDateConverter().convertToPresentation(new Date(0), new ValueContext());
+            assertThat(datePresentation(factory.create(RaceResult.class))).isEqualTo(vaadinConverted);
+
+            assertThat(datePresentation(factory.create(RaceResult.class, ConversionOrder.SPRING_FIRST)))
+                    .isEqualTo(new Date(0).toString());
+            assertThat(datePresentation(factory.createBeanValidation(RaceResult.class, ConversionOrder.SPRING_FIRST)))
+                    .isEqualTo(new Date(0).toString());
+        });
+    }
+
+    @Test
+    void provider_conversionOrderCanBeOverriddenPerBinder() {
+        contextRunner.withBean(ProviderConsumer.class).run(context -> {
+            SpringBinderProvider<RaceResult> provider = context.getBean(ProviderConsumer.class).raceResults;
+            assertThat(provider.getConversionOrder()).isEqualTo(ConversionOrder.VAADIN_FIRST);
+
+            assertThat(datePresentation(provider.create(ConversionOrder.SPRING_FIRST)))
+                    .isEqualTo(new Date(0).toString());
+            assertThat(datePresentation(provider.createBeanValidation(ConversionOrder.SPRING_FIRST)))
+                    .isEqualTo(new Date(0).toString());
+        });
+    }
+
+    /** The configured property is the default the no-order overloads fall back to. */
+    @Test
+    void factory_conversionOrderReflectsTheConfiguredProperty() {
+        contextRunner
+                .withBean(ProviderConsumer.class)
+                .withPropertyValues("springbinder.conversion.order=spring-first")
+                .run(context -> {
+                    assertThat(context.getBean(SpringBinderFactory.class).getConversionOrder())
+                            .isEqualTo(ConversionOrder.SPRING_FIRST);
+                    assertThat(context.getBean(ProviderConsumer.class)
+                                    .raceResults
+                                    .getConversionOrder())
+                            .isEqualTo(ConversionOrder.SPRING_FIRST);
                 });
     }
 
@@ -139,8 +189,8 @@ class SpringBinderFactoryTest {
         contextRunner.withBean(ProviderConsumer.class).run(context -> {
             ProviderConsumer consumer = context.getBean(ProviderConsumer.class);
 
-            SpringBinder<Person> first = consumer.people.get();
-            SpringBinder<Person> second = consumer.people.get();
+            SpringBinder<Person> first = consumer.people.create();
+            SpringBinder<Person> second = consumer.people.create();
             assertThat(first).isNotSameAs(second);
 
             Form form = new Form();
@@ -150,8 +200,8 @@ class SpringBinderFactoryTest {
             first.setBean(person);
             assertThat(form.name.getValue()).isEqualTo("Attilio");
 
-            assertThat(consumer.raceResults.getBeanValidation()).isNotNull();
-            assertThat(durationPresentation(consumer.raceResults.get())).isEqualTo("120M");
+            assertThat(consumer.raceResults.createBeanValidation()).isNotNull();
+            assertThat(durationPresentation(consumer.raceResults.create())).isEqualTo("120M");
         });
     }
 
@@ -163,14 +213,15 @@ class SpringBinderFactoryTest {
     void beanType_isReadableFromInjectedFactoryAndProviderBinders() {
         contextRunner.withBean(ProviderConsumer.class).run(context -> {
             ProviderConsumer consumer = context.getBean(ProviderConsumer.class);
-            assertThat(consumer.people.get().getBeanType()).contains(Person.class);
-            assertThat(consumer.raceResults.get().getBeanType()).contains(RaceResult.class);
-            assertThat(consumer.raceResults.getBeanValidation().getBeanType()).contains(RaceResult.class);
+            assertThat(consumer.people.create().findBeanType()).contains(Person.class);
+            assertThat(consumer.raceResults.create().findBeanType()).contains(RaceResult.class);
+            assertThat(consumer.raceResults.createBeanValidation().findBeanType())
+                    .contains(RaceResult.class);
 
             SpringBinderFactory factory = context.getBean(SpringBinderFactory.class);
-            assertThat(factory.create(Duration.class).getBeanType()).contains(Duration.class);
-            assertThat(factory.create(Person.class, true).getBeanType()).contains(Person.class);
-            assertThat(factory.createBeanValidation(RaceResult.class, true).getBeanType())
+            assertThat(factory.create(Duration.class).findBeanType()).contains(Duration.class);
+            assertThat(factory.create(Person.class, true).findBeanType()).contains(Person.class);
+            assertThat(factory.createBeanValidation(RaceResult.class, true).findBeanType())
                     .contains(RaceResult.class);
         });
     }
@@ -180,7 +231,7 @@ class SpringBinderFactoryTest {
     void beanType_isEmptyForAPropertySetBinder() {
         assertThat(SpringBinder.withPropertySet(
                                 BeanPropertySet.get(RaceResult.class), DefaultConversionService.getSharedInstance())
-                        .getBeanType())
+                        .findBeanType())
                 .isEmpty();
     }
 
