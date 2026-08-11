@@ -11,6 +11,9 @@
     <description>A Vaadin Flow Binder implementation integrating Spring converters</description>
     <url>https://github.com/mcollovati/spring-binder-for-vaadin</url>
 
+    <organization>
+        <name>Marco Collovati</name>
+    </organization>
     <developers>
         <developer>
             <id>mcollovati</id>
@@ -18,7 +21,13 @@
             <email>mcollovati@gmail.com</email>
         </developer>
     </developers>
-
+    <licenses>
+        <license>
+            <name>Apache 2</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
     <scm>
         <connection>scm:git:https://github.com/mcollovati/spring-binder-for-vaadin.git</connection>
         <developerConnection>scm:git:git@github.com:mcollovati/spring-binder-for-vaadin.git</developerConnection>
@@ -27,15 +36,11 @@
     </scm>
 
     <properties>
-
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <!-- 25.2+ is required by the browserless UI tests: vaadin-spring-bom pins
-             browserless-test 1.0.0 on 25.1, which has no Spring module. The add-on
-             itself only uses long standing flow-data API. -->
         <vaadin.version>25.2.5</vaadin.version>
         <spring-boot.version>4.0.4</spring-boot.version>
 
@@ -48,16 +53,6 @@
         <assertj.version>3.27.7</assertj.version>
         <spotless.version>3.0.0</spotless.version>
     </properties>
-    <organization>
-        <name>Marco Collovati</name>
-    </organization>
-    <licenses>
-        <license>
-            <name>Apache 2</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -76,9 +71,6 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
-
-    <!-- No repository declarations on purpose: everything this add-on needs is on Maven
-         Central, and declaring repositories here would push them onto every consumer. -->
 
     <dependencies>
         <dependency>
@@ -293,11 +285,8 @@
 
     <profiles>
         <profile>
-            <!-- Artifacts required to publish to Maven Central. The Vaadin Directory
-                 picks new versions up from Central automatically, so no zip is built. -->
             <id>release</id>
             <properties>
-                <!-- The signing key is provided through environment variables by the workflow -->
                 <jreleaser.signing.mode>MEMORY</jreleaser.signing.mode>
                 <release.mavencentral.active>RELEASE</release.mavencentral.active>
             </properties>
