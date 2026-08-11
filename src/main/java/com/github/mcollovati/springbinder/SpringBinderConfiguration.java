@@ -33,9 +33,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
-import org.springframework.context.support.ConversionServiceFactoryBean;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.core.convert.support.DefaultConversionService;
 
 @AutoConfiguration
 @ConditionalOnClass(Binder.class)
@@ -47,12 +45,11 @@ public class SpringBinderConfiguration {
     @ConditionalOnMissingBean
     <BEAN> SpringBinder<BEAN> createBinder(
             DependencyDescriptor descriptor,
-            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
-            ObjectProvider<ConversionService> conversionService,
+            ConversionServiceResolver conversionService,
             SpringBinderProperties properties) {
         return new SpringBinder<>(
                 beanType(descriptor),
-                resolveConversionService(binderConversionService, conversionService),
+                conversionService.get(),
                 properties.getConversion().getOrder());
     }
 
@@ -65,14 +62,24 @@ public class SpringBinderConfiguration {
     @Bean
     @ConditionalOnMissingBean
     SpringBinderFactory springBinderFactory(
-            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
-            ObjectProvider<ConversionService> conversionService,
+            ConversionServiceResolver conversionService,
             ObjectProvider<BinderValidatorFactory> validatorFactory,
             SpringBinderProperties properties) {
-        return new DefaultSpringBinderFactory(
-                () -> resolveConversionService(binderConversionService, conversionService),
-                validatorFactory,
-                properties);
+        return new DefaultSpringBinderFactory(conversionService::get, validatorFactory, properties);
+    }
+
+    /**
+     * Resolves the conversion service the binders use. It is a bean of its own so that the service it
+     * may have to build is built once and shared by every binder, and so that an application can
+     * replace the resolution altogether.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    ConversionServiceResolver binderConversionServiceResolver(
+            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
+            ObjectProvider<ConversionService> conversionService,
+            ApplicationContext applicationContext) {
+        return new ConversionServiceResolver(binderConversionService, conversionService, applicationContext);
     }
 
     /**
@@ -85,12 +92,6 @@ public class SpringBinderConfiguration {
     <BEAN> SpringBinderProvider<BEAN> createBinderProvider(
             DependencyDescriptor descriptor, SpringBinderFactory factory) {
         return new DefaultSpringBinderProvider<>(beanType(descriptor), factory);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(ConversionService.class)
-    ConversionServiceFactoryBean conversionServiceFactoryBean() {
-        return new ConversionServiceFactoryBean();
     }
 
     /**
@@ -119,13 +120,12 @@ public class SpringBinderConfiguration {
         @ConditionalOnMissingBean
         <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidationBinder(
                 DependencyDescriptor descriptor,
-                @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
-                ObjectProvider<ConversionService> conversionService,
+                ConversionServiceResolver conversionService,
                 BinderValidatorFactory validatorFactory,
                 SpringBinderProperties properties) {
             return new SpringBeanValidationBinder<>(
                     beanType(descriptor),
-                    resolveConversionService(binderConversionService, conversionService),
+                    conversionService.get(),
                     validatorFactory.get(),
                     properties.getConversion().getOrder());
         }
@@ -144,23 +144,5 @@ public class SpringBinderConfiguration {
                 (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
         Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
         return beanType;
-    }
-
-    /**
-     * Picks the {@link ConversionService} the binders should use: one qualified with {@link
-     * BinderConversionService} when present, otherwise the application's own.
-     *
-     * <p>Both are looked up with {@link ObjectProvider#getIfUnique()}, so an application declaring
-     * several {@link ConversionService} beans without marking one as primary gets a working binder
-     * based on the shared {@link DefaultConversionService} instead of a failing injection point.
-     */
-    private static ConversionService resolveConversionService(
-            ObjectProvider<ConversionService> binderConversionService,
-            ObjectProvider<ConversionService> conversionService) {
-        ConversionService resolved = binderConversionService.getIfUnique();
-        if (resolved == null) {
-            resolved = conversionService.getIfUnique();
-        }
-        return resolved != null ? resolved : DefaultConversionService.getSharedInstance();
     }
 }

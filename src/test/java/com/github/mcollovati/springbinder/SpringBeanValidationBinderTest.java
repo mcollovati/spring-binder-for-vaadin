@@ -31,7 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.core.convert.converter.Converter;
+import org.springframework.core.convert.support.GenericConversionService;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -52,14 +52,22 @@ public class SpringBeanValidationBinderTest extends SpringBinderTest {
             return new LocalValidatorFactoryBean();
         }
 
+        /**
+         * Declared explicitly so that these tests convert through conversions registered here, whatever
+         * the add-on resolves for an application. Leaving the conversion service to the add-on would
+         * hand {@code String <-> Duration} to Spring's {@code valueOf} and {@code toString()}
+         * fallbacks, and the tests would pass with no converter registered at all.
+         *
+         * <p>The source and target types are named explicitly because {@code addConverter(Converter)}
+         * cannot read them off a lambda. Picking converter <em>beans</em> up is a separate concern, and
+         * is covered by {@link SpringBinderAutoConfigurationTest}.
+         */
         @Bean
-        Converter<String, Duration> stringToDurationConverter() {
-            return Duration::valueOf;
-        }
-
-        @Bean
-        Converter<Duration, String> durationToStringConverter() {
-            return Duration::toString;
+        ConversionService conversionService() {
+            GenericConversionService conversions = new GenericConversionService();
+            conversions.addConverter(String.class, Duration.class, Duration::valueOf);
+            conversions.addConverter(Duration.class, String.class, Duration::toString);
+            return conversions;
         }
     }
 

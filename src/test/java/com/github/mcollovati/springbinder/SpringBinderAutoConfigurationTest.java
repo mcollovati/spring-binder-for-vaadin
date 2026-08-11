@@ -185,9 +185,74 @@ class SpringBinderAutoConfigurationTest {
                 });
     }
 
+    /**
+     * The add-on must not publish a {@link ConversionService} of its own: an unqualified one changes
+     * what the rest of the application injects, and satisfies the {@code ConditionalOnMissingBean} of
+     * any auto-configuration that contributes one. It keeps the service it converts with to itself.
+     */
     @Test
-    void noConversionServiceBean_oneIsRegistered() {
-        contextRunner.run(context -> assertThat(context).hasSingleBean(ConversionService.class));
+    void noConversionServiceBean_noneIsPublished() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).doesNotHaveBean(ConversionService.class);
+        });
+    }
+
+    /**
+     * The headline promise of the add-on. It holds in a servlet application only because Spring Boot
+     * collects {@code Converter} beans into {@code mvcConversionService} itself; nothing collects them
+     * in a plain context, so the add-on has to.
+     */
+    @Test
+    void converterBeans_areUsedByInjectedBinders() {
+        contextRunner
+                .withUserConfiguration(ConverterBeans.class, BinderHolder.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertConverterBeansAreUsed(context.getBean(BinderHolder.class).binder);
+                });
+    }
+
+    @Test
+    void webApplication_converterBeansAreUsedByInjectedBinders() {
+        new WebApplicationContextRunner()
+                .withConfiguration(
+                        AutoConfigurations.of(WebMvcAutoConfiguration.class, SpringBinderConfiguration.class))
+                .withUserConfiguration(ConverterBeans.class, BinderHolder.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasBean("mvcConversionService");
+                    assertConverterBeansAreUsed(context.getBean(BinderHolder.class).binder);
+                });
+    }
+
+    /**
+     * Ambiguity must not cost the application its conversions. The binders cannot tell which service
+     * was meant, but the service they fall back to still holds every {@code Converter} bean.
+     */
+    @Test
+    void ambiguousConversionServices_converterBeansAreStillUsed() {
+        contextRunner
+                .withUserConfiguration(ConverterBeans.class, TwoConversions.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertConverterBeansAreUsed(context.getBean(BinderHolder.class).binder);
+                });
+    }
+
+    /**
+     * The qualifier states which service the binders must use, so more than one carrying it is a
+     * contradiction. It has to fail at startup: ignoring it quietly would convert through a service
+     * the application explicitly did not choose.
+     */
+    @Test
+    void severalQualifiedConversionServices_contextFailsToStart() {
+        contextRunner.withUserConfiguration(TwoQualifiedConversions.class).run(context -> {
+            assertThat(context).hasFailed();
+            assertThat(context.getStartupFailure())
+                    .hasStackTraceContaining("Several ConversionService beans are annotated with "
+                            + "@BinderConversionService [first, second]");
+        });
     }
 
     @Test
@@ -270,6 +335,42 @@ class SpringBinderAutoConfigurationTest {
         }
     }
 
+    /**
+     * The prefix is the point: nothing but these two converters produces or understands it, so a round
+     * trip through it cannot be satisfied by Spring's {@code valueOf} based {@code
+     * ObjectToObjectConverter} or by the {@code toString()} fallback.
+     */
+    @Configuration(proxyBeanMethods = false)
+    static class ConverterBeans {
+
+        private static final String PREFIX = "BEAN-";
+
+        @Bean
+        Converter<Duration, String> durationToString() {
+            return duration -> PREFIX + duration;
+        }
+
+        @Bean
+        Converter<String, Duration> stringToDuration() {
+            return text -> Duration.valueOf(text.startsWith(PREFIX) ? text.substring(PREFIX.length()) : text);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class TwoQualifiedConversions {
+        @Bean
+        @BinderConversionService
+        ConversionService first() {
+            return new DefaultFormattingConversionService();
+        }
+
+        @Bean
+        @BinderConversionService
+        ConversionService second() {
+            return new DefaultFormattingConversionService();
+        }
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class TwoConversions {
         @Bean
@@ -303,6 +404,18 @@ class SpringBinderAutoConfigurationTest {
 
     static class DateForm {
         TestField<String> date = new TestField<>(String.class, null);
+    }
+
+    private static void assertConverterBeansAreUsed(SpringBinder<RaceResult> binder) {
+        DurationForm form = new DurationForm();
+        binder.bindInstanceFields(form);
+        RaceResult bean = new RaceResult("TEAM1", 3, new Duration(120, "M"));
+        binder.setBean(bean);
+
+        assertThat(form.duration.getValue()).isEqualTo("BEAN-120M");
+
+        form.duration.setValue("BEAN-90S");
+        assertThat(bean.getDuration()).isEqualTo(new Duration(90, "S"));
     }
 
     private static String durationPresentation(SpringBinder<RaceResult> binder) {

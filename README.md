@@ -273,12 +273,31 @@ binder.forField(dateField)
 
 ### Which `ConversionService` is used
 
-The add-on uses the application's `ConversionService` bean, and registers a
-`DefaultConversionService` of its own only when there is none. In a Spring Boot
-web application there usually *is* one already — the format-aware MVC conversion
-service — so `spring.mvc.format.*` settings apply to bindings too. If several
-`ConversionService` beans exist and none is `@Primary`, the binders fall back to
-the shared `DefaultConversionService` rather than failing to start.
+The binders use, in this order:
+
+1. the `ConversionService` bean qualified with `@BinderConversionService`, if there
+   is one. The qualifier names a single service, so several beans carrying it fail
+   the context at startup rather than being quietly ignored.
+2. otherwise the application's own `ConversionService` bean. In a Spring Boot web
+   application there *is* one already — the format-aware MVC conversion service —
+   so `spring.mvc.format.*` settings apply to bindings too.
+3. otherwise a conversion service the add-on builds itself, holding Spring's
+   default converters plus every `Converter`, `GenericConverter`, `Formatter`,
+   `Printer` and `Parser` the application registers as a bean.
+
+Step 3 is what makes converter beans work in an application that has no
+`ConversionService` of its own: Spring Boot collects those beans into the MVC
+conversion service for a servlet application, and nothing collects them anywhere
+else — so a plain context, such as a `@SpringBootTest(webEnvironment = NONE)`,
+would otherwise convert through a registry holding none of your converters.
+
+If several `ConversionService` beans exist and none is `@Primary`, the binders
+cannot tell which one you meant. They log a warning and use the service from step
+3, which at least still has your converter beans in it. Annotate one with
+`@BinderConversionService` to choose.
+
+The add-on never publishes a `ConversionService` bean of its own, so it cannot
+change what the rest of the application injects.
 
 To give the binders a conversion service of their own, qualify it with
 `@BinderConversionService`. Combined with `spring-first`, a registry built without
@@ -288,14 +307,18 @@ else — no `ObjectToObject`, no `toString()` fallback:
 ```java
 @Bean
 @BinderConversionService
-ConversionService binderConversions(Converter<String, Duration> toDuration,
-        Converter<Duration, String> fromDuration) {
+ConversionService binderConversions() {
     GenericConversionService conversions = new GenericConversionService();
-    conversions.addConverter(toDuration);
-    conversions.addConverter(fromDuration);
+    conversions.addConverter(String.class, Duration.class, Duration::valueOf);
+    conversions.addConverter(Duration.class, String.class, Duration::toString);
     return conversions;
 }
 ```
+
+Name the source and target types explicitly. `addConverter(Converter)` reads them
+from the converter's own class, which a lambda or a method reference does not
+declare, and passing one throws `IllegalArgumentException: Unable to determine
+source type <S> and target type <T> for your Converter`.
 
 ## Building
 

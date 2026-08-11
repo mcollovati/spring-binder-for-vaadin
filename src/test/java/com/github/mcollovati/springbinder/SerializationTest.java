@@ -165,9 +165,11 @@ class SerializationTest {
                     context.getBean(SpringBinderFactory.class).create(RaceResult.class);
             // Reaching the ConversionService through the converter factory is what triggers the
             // failure; a transient converter factory would hide it and restore a broken binder.
+            // The assertion names the conversion service rather than one implementation of it, since
+            // which one a binder holds depends on what the application declares.
             assertThatExceptionOfType(NotSerializableException.class)
                     .isThrownBy(() -> serialize(binder))
-                    .withMessageContaining("org.springframework.core.convert");
+                    .withMessageContaining("ConversionService");
         });
     }
 }
