@@ -38,7 +38,11 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # JReleaser waits for the artifacts to appear on Maven Central after uploading them,
+    # and only then creates the tag and the GitHub release. That check can poll for over
+    # half an hour on a first release, so a shorter timeout would kill the job with the
+    # artifacts already published and no tag to show for it, and 1.0.0 cannot be uploaded twice.
+    timeout-minutes: 75
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

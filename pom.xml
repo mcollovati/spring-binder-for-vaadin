@@ -94,6 +94,20 @@
             <artifactId>spring-boot</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- Generates META-INF/spring-configuration-metadata.json, so that the add-on's
+             properties get description, default value and completion in an IDE -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- @NullMarked and @Nullable, the nullness contract of the public API. Reaches the
+             build through spring-core as well, but the add-on uses it directly -->
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
@@ -230,6 +244,9 @@
                         </manifest>
                         <manifestEntries>
                             <Vaadin-Package-Version>1</Vaadin-Package-Version>
+                            <!-- Frozen at the first release: changing it later changes the module
+                                 name consumers compile against -->
+                            <Automatic-Module-Name>com.github.mcollovati.springbinder</Automatic-Module-Name>
                         </manifestEntries>
                     </archive>
                 </configuration>
