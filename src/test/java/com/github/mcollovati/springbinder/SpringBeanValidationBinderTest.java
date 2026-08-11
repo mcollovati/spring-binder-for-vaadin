@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder;
+package com.github.mcollovati.springbinder;
 
 import jakarta.validation.ValidatorFactory;
 import java.util.List;
@@ -21,9 +21,6 @@ import java.util.List;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.BindingValidationStatus;
-import io.github.mcollovati.springbinder.data.Duration;
-import io.github.mcollovati.springbinder.data.RaceResult;
-import io.github.mcollovati.springbinder.fields.TestField;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +32,10 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import com.github.mcollovati.springbinder.data.Duration;
+import com.github.mcollovati.springbinder.data.RaceResult;
+import com.github.mcollovati.springbinder.fields.TestField;
 
 @ContextConfiguration(classes = {SpringBeanValidationBinderTest.Config.class, SpringBinderConfiguration.class})
 @ExtendWith({SpringExtension.class})

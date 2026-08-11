@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder;
+package com.github.mcollovati.springbinder;
 
 import java.util.Date;
 import java.util.Optional;
@@ -21,12 +21,13 @@ import java.util.Optional;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValueContext;
 import com.vaadin.flow.data.converter.StringToDateConverter;
-import io.github.mcollovati.springbinder.data.Duration;
-import io.github.mcollovati.springbinder.data.RaceResult;
-import io.github.mcollovati.springbinder.fields.TestField;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.convert.ConversionService;
+
+import com.github.mcollovati.springbinder.data.Duration;
+import com.github.mcollovati.springbinder.data.RaceResult;
+import com.github.mcollovati.springbinder.fields.TestField;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;

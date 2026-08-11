@@ -13,13 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder;
+package com.github.mcollovati.springbinder;
 
 import com.vaadin.flow.data.binder.Binder;
-import io.github.mcollovati.springbinder.data.Duration;
-import io.github.mcollovati.springbinder.data.Person;
-import io.github.mcollovati.springbinder.fields.NumberField;
-import io.github.mcollovati.springbinder.fields.TestField;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +25,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+
+import com.github.mcollovati.springbinder.data.Duration;
+import com.github.mcollovati.springbinder.data.Person;
+import com.github.mcollovati.springbinder.fields.NumberField;
+import com.github.mcollovati.springbinder.fields.TestField;
 
 @ContextConfiguration(classes = SpringBinderInjectionTest.Config.class)
 @ExtendWith(SpringExtension.class)

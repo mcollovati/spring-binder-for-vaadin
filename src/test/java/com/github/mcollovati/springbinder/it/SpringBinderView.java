@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder.it;
+package com.github.mcollovati.springbinder.it;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.datepicker.DatePicker;
@@ -23,8 +23,9 @@ import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.router.Route;
-import io.github.mcollovati.springbinder.SpringBinder;
-import io.github.mcollovati.springbinder.data.RaceResult;
+
+import com.github.mcollovati.springbinder.SpringBinder;
+import com.github.mcollovati.springbinder.data.RaceResult;
 
 @Route("")
 public class SpringBinderView extends VerticalLayout {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder;
+package com.github.mcollovati.springbinder;
 
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.converter.ConverterFactory;

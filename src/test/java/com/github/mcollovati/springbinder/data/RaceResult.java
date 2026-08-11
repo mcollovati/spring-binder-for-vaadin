@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.github.mcollovati.springbinder.data;
+package com.github.mcollovati.springbinder.data;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
