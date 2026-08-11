@@ -26,6 +26,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.support.ConversionServiceFactoryBean;
 import org.springframework.core.convert.ConversionService;
@@ -45,7 +46,12 @@ public class SpringBinderConfiguration {
         return new SpringBinder<>(beanType, conversionService);
     }
 
+    /**
+     * The validation capable binder is primary so that injecting the base {@link Binder} type
+     * resolves to it instead of being ambiguous. Both concrete types remain injectable.
+     */
     @Bean
+    @Primary
     @Scope(BeanDefinition.SCOPE_PROTOTYPE)
     @ConditionalOnMissingBean
     @ConditionalOnBean(ValidatorFactory.class)
