@@ -17,8 +17,22 @@ Spring's `ValidatorFactory`.
 | | |
 |---|---|
 | Java | 21+ |
-| Vaadin | 25.2+ (built and tested against 25.2.5) |
+| Vaadin | 25.2+ (built and tested against 25.2.6) |
 | Spring Boot | 4.x |
+
+Java 21 applies to the JDK the application is built with, not only to the JVM it
+runs on. The add-on is compiled to Java 21 bytecode, so an older JDK cannot read
+it:
+
+```
+bad class file: .../spring-binder-for-vaadin-1.0.0.jar(/com/github/mcollovati/springbinder/SpringBinder.class)
+  class file has wrong version 65.0, should be 61.0
+```
+
+Spring Boot 4 itself only requires Java 17, so a project can be on Spring Boot 4
+and still be building with a JDK too old for this add-on. Targeting an earlier
+release from a JDK 21 toolchain — `maven.compiler.release` 17, say — does compile,
+but the JVM running the application still has to be 21 or later.
 
 ## Installation
 
