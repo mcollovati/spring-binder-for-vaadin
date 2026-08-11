@@ -15,6 +15,8 @@
  */
 package com.github.mcollovati.springbinder;
 
+import java.util.Optional;
+
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.converter.ConverterFactory;
@@ -29,6 +31,7 @@ import org.springframework.core.convert.support.DefaultConversionService;
 public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
 
     private final transient SpringConverterFactory converterFactory;
+    private final Class<BEAN> beanType;
 
     /**
      * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
@@ -52,6 +55,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
     protected AbstractSpringBinder(
             Class<BEAN> beanType, ConversionService conversionService, ConversionOrder conversionOrder) {
         super(beanType);
+        this.beanType = beanType;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
@@ -83,6 +87,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
             ConversionService conversionService,
             ConversionOrder conversionOrder) {
         super(beanType, scanNestedDefinitions);
+        this.beanType = beanType;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
@@ -97,12 +102,27 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
     protected AbstractSpringBinder(
             PropertySet<BEAN> propertySet, ConversionService conversionService, ConversionOrder conversionOrder) {
         super(propertySet);
+        this.beanType = null;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
     private SpringConverterFactory createConverterFactory(
             ConversionService conversionService, ConversionOrder conversionOrder) {
         return new SpringConverterFactory(conversionService, super.getConverterFactory(), conversionOrder);
+    }
+
+    /**
+     * Returns the bean type this binder binds.
+     *
+     * <p>Useful to assert that an injected binder was built for the expected type, since the
+     * auto-configuration resolves it from the generic parameter of the injection point rather than
+     * from an argument the caller passes.
+     *
+     * @return the bean type, or an empty optional when the binder was created from a {@link
+     *     PropertySet} and no bean type is known.
+     */
+    public Optional<Class<BEAN>> getBeanType() {
+        return Optional.ofNullable(beanType);
     }
 
     /**

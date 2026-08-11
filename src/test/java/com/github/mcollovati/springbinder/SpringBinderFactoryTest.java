@@ -17,6 +17,7 @@ package com.github.mcollovati.springbinder;
 
 import java.util.Date;
 
+import com.vaadin.flow.data.binder.BeanPropertySet;
 import com.vaadin.flow.data.binder.ValueContext;
 import com.vaadin.flow.data.converter.StringToDateConverter;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.core.io.ClassPathResource;
 
 import com.github.mcollovati.springbinder.data.Duration;
@@ -151,6 +153,35 @@ class SpringBinderFactoryTest {
             assertThat(consumer.raceResults.getBeanValidation()).isNotNull();
             assertThat(durationPresentation(consumer.raceResults.get())).isEqualTo("120M");
         });
+    }
+
+    /**
+     * The bean type of an injected binder comes from the injection point rather than from an argument
+     * the caller controls, so it must be readable to be assertable.
+     */
+    @Test
+    void beanType_isReadableFromInjectedFactoryAndProviderBinders() {
+        contextRunner.withBean(ProviderConsumer.class).run(context -> {
+            ProviderConsumer consumer = context.getBean(ProviderConsumer.class);
+            assertThat(consumer.people.get().getBeanType()).contains(Person.class);
+            assertThat(consumer.raceResults.get().getBeanType()).contains(RaceResult.class);
+            assertThat(consumer.raceResults.getBeanValidation().getBeanType()).contains(RaceResult.class);
+
+            SpringBinderFactory factory = context.getBean(SpringBinderFactory.class);
+            assertThat(factory.create(Duration.class).getBeanType()).contains(Duration.class);
+            assertThat(factory.create(Person.class, true).getBeanType()).contains(Person.class);
+            assertThat(factory.createBeanValidation(RaceResult.class, true).getBeanType())
+                    .contains(RaceResult.class);
+        });
+    }
+
+    /** A binder built from a property set has no bean type to report. */
+    @Test
+    void beanType_isEmptyForAPropertySetBinder() {
+        assertThat(SpringBinder.withPropertySet(
+                                BeanPropertySet.get(RaceResult.class), DefaultConversionService.getSharedInstance())
+                        .getBeanType())
+                .isEmpty();
     }
 
     /** Two injection points for different bean types must not share a provider instance. */

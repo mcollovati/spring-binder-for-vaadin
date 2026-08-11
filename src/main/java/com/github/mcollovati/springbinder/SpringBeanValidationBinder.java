@@ -41,7 +41,6 @@ import org.springframework.core.convert.ConversionService;
  */
 public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN> {
 
-    private final Class<BEAN> beanType;
     private final ValidatorFactory validatorFactory;
     private RequiredFieldConfigurator requiredConfigurator = RequiredFieldConfigurator.DEFAULT;
 
@@ -67,7 +66,6 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
     public SpringBeanValidationBinder(
             Class<BEAN> beanType, ConversionService conversionService, ValidatorFactory validatorFactory) {
         super(beanType, conversionService);
-        this.beanType = beanType;
         this.validatorFactory = validatorFactory;
     }
 
@@ -86,7 +84,6 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             ValidatorFactory validatorFactory,
             ConversionOrder conversionOrder) {
         super(beanType, conversionService, conversionOrder);
-        this.beanType = beanType;
         this.validatorFactory = validatorFactory;
     }
 
@@ -105,7 +102,6 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             ConversionService conversionService,
             ValidatorFactory validatorFactory) {
         super(beanType, scanNestedDefinitions, conversionService);
-        this.beanType = beanType;
         this.validatorFactory = validatorFactory;
     }
 
@@ -126,7 +122,6 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             ValidatorFactory validatorFactory,
             ConversionOrder conversionOrder) {
         super(beanType, scanNestedDefinitions, conversionService, conversionOrder);
-        this.beanType = beanType;
         this.validatorFactory = validatorFactory;
     }
 
@@ -144,7 +139,6 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             ValidatorFactory validatorFactory,
             ConversionOrder conversionOrder) {
         super(propertySet, conversionService, conversionOrder);
-        this.beanType = null;
         this.validatorFactory = validatorFactory;
     }
 
@@ -212,9 +206,11 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             return ((BeanPropertySet.NestedBeanPropertyDefinition) definition)
                     .getParent()
                     .getType();
-        } else if (beanType != null) {
+        }
+        Class<BEAN> knownBeanType = getBeanType().orElse(null);
+        if (knownBeanType != null) {
             // Non nested properties must be defined in the main type
-            return beanType;
+            return knownBeanType;
         }
         // Binder created from a property set, so the bean type is not known upfront
         return definition.getPropertyHolderType();

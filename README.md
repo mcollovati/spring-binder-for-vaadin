@@ -67,6 +67,17 @@ public class RaceResultView extends VerticalLayout {
 }
 ```
 
+The bean type comes from the generic parameter of the injection point, so nothing
+passes it explicitly. `getBeanType()` reads it back, which is the way to assert an
+injected binder really was built for the type the view expects:
+
+```java
+assertThat(binder.getBeanType()).contains(RaceResult.class);
+```
+
+It is empty only for a binder created from a `PropertySet`, where there is no bean
+type to report.
+
 `duration` is a `TextField`, while `RaceResult.duration` is a custom `Duration`
 type. `bindInstanceFields()` would normally fail on that mismatch; with this
 add-on the conversion is taken from Spring:
