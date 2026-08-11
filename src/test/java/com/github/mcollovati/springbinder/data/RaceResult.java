@@ -17,9 +17,10 @@ package com.github.mcollovati.springbinder.data;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.io.Serializable;
 import java.util.Date;
 
-public class RaceResult {
+public class RaceResult implements Serializable {
 
     private Date date;
 

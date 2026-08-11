@@ -16,15 +16,19 @@
 package com.github.mcollovati.springbinder;
 
 import jakarta.validation.ValidatorFactory;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.NotSerializableException;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 
+import com.vaadin.flow.component.textfield.TextField;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import com.github.mcollovati.springbinder.data.Duration;
 import com.github.mcollovati.springbinder.data.RaceResult;
 import com.github.mcollovati.springbinder.fields.TestField;
 
@@ -35,33 +39,35 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 /**
  * Pins down what happens when the add-on's types end up in a serialized HTTP session.
  *
- * <p>They cannot be serialized: they hold a Spring {@code ConversionService} and {@code
- * ValidatorFactory}, and there is no sound way to resolve those again once a session has been
- * restored, least of all in another JVM. What these tests guard is therefore that the attempt fails
- * <em>immediately and by name</em>, rather than succeeding and leaving a binder that cannot convert or
- * validate. Applications keep these out of the session with a {@code transient} field, which is what
- * the class javadoc and the README tell them to do.
+ * <p>A binder has to survive being written, whether or not the application wants it to: Vaadin's
+ * {@code Binder} registers a value change listener on every field it binds, and that listener holds
+ * the binder, so each bound field reaches it. Keeping the binder out of the session is therefore not
+ * something a view can decide — a {@code transient} field removes one reference out of many, and the
+ * fields drag the binder in regardless.
+ *
+ * <p>The Spring collaborators are consequently {@code transient}, and a binder restored from a session
+ * can convert and validate nothing. What these tests guard is that the write succeeds, and that using
+ * a restored binder says exactly what is wrong instead of failing obscurely.
  */
 class SerializationTest {
 
     private final ApplicationContextRunner contextRunner =
             new ApplicationContextRunner().withConfiguration(AutoConfigurations.of(SpringBinderConfiguration.class));
 
-    /** A view holding the binder the way an application must not. */
-    static class ViewWithBinder implements Serializable {
-        final AbstractSpringBinder<RaceResult> binder;
-
-        ViewWithBinder(AbstractSpringBinder<RaceResult> binder) {
-            this.binder = binder;
-        }
+    /**
+     * A form whose {@code duration} field only binds if Spring supplies the converter. It uses a real
+     * {@link TextField} rather than the test double, because the assertions below read the error the
+     * binding puts on the field, which needs {@code HasValidation}.
+     */
+    static class DurationForm implements Serializable {
+        TextField duration = new TextField();
     }
 
-    /** A view holding the binder the way the documentation prescribes. */
-    static class ViewWithTransientBinder implements Serializable {
-        final transient AbstractSpringBinder<RaceResult> binder;
+    static class ViewWithBinder implements Serializable {
+        final AbstractSpringBinder<RaceResult> binder;
         final TestField<String> team = new TestField<>(String.class, "");
 
-        ViewWithTransientBinder(AbstractSpringBinder<RaceResult> binder) {
+        ViewWithBinder(AbstractSpringBinder<RaceResult> binder) {
             this.binder = binder;
         }
     }
@@ -72,49 +78,117 @@ class SerializationTest {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private static <T> T roundTrip(T value) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(value);
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (T) in.readObject();
+        }
+    }
+
+    private static DurationForm boundForm(AbstractSpringBinder<RaceResult> binder) {
+        DurationForm form = new DurationForm();
+        binder.bindInstanceFields(form);
+        binder.setBean(new RaceResult("TEAM1", 3, new Duration(120, "M")));
+        return form;
+    }
+
     @Test
-    void springBinder_cannotBeSerialized_andSaysWhich() {
+    void springBinder_canBeSerialized() {
         contextRunner.run(context -> {
             SpringBinder<RaceResult> binder =
                     context.getBean(SpringBinderFactory.class).create(RaceResult.class);
-            assertThatExceptionOfType(NotSerializableException.class)
-                    .isThrownBy(() -> serialize(binder))
-                    .withMessageContaining("ConversionService");
+            assertThatNoException().isThrownBy(() -> serialize(binder));
         });
     }
 
-    /**
-     * The conversion service is reached first, being a superclass field, so that is what the message
-     * names. Either way the failure is immediate and points at a Spring collaborator.
-     */
     @Test
-    void springBeanValidationBinder_cannotBeSerialized_andSaysWhich() {
+    void springBeanValidationBinder_canBeSerialized() {
         contextRunner.run(context -> {
             SpringBeanValidationBinder<RaceResult> binder =
                     context.getBean(SpringBinderFactory.class).createBeanValidation(RaceResult.class);
-            assertThatExceptionOfType(NotSerializableException.class)
-                    .isThrownBy(() -> serialize(binder))
-                    .withMessageStartingWith("org.springframework");
+            assertThatNoException().isThrownBy(() -> serialize(binder));
         });
     }
 
-    /**
-     * A validator is stored in the binding it validates, so it would travel with a binder even if the
-     * conversion service did not. It holds the validator factory and so cannot be serialized either.
-     */
+    /** A validator is stored in the binding it validates, so it travels with a bound field. */
     @Test
-    void springBeanValidator_cannotBeSerialized_andSaysWhich() {
+    void springBeanValidator_canBeSerialized() {
         contextRunner.run(context -> {
             ValidatorFactory validatorFactory =
                     context.getBean(BinderValidatorFactory.class).get();
             SpringBeanValidator validator = new SpringBeanValidator(RaceResult.class, "team", validatorFactory);
-            assertThatExceptionOfType(NotSerializableException.class)
-                    .isThrownBy(() -> serialize(validator))
-                    .withMessageContaining("ValidatorFactory");
+            assertThatNoException().isThrownBy(() -> serialize(validator));
         });
     }
 
-    /** The factory and the provider reach into the context, so they cannot travel either. */
+    /**
+     * The case that decides whether the add-on works in a session at all. Nobody holds the binder here:
+     * the field alone reaches it, through the value change listener the binding registered.
+     */
+    @Test
+    void aFieldBoundThroughSpringConversion_canBeSerialized() {
+        contextRunner.run(context -> {
+            DurationForm form =
+                    boundForm(context.getBean(SpringBinderFactory.class).create(RaceResult.class));
+            assertThat(form.duration.getValue()).isEqualTo("120M");
+            assertThatNoException().isThrownBy(() -> serialize(form));
+        });
+    }
+
+    /** Holding the binder in an ordinary field is no longer a way to break the session. */
+    @Test
+    void aViewHoldingABinderInAPlainField_canBeSerialized() {
+        contextRunner.run(context -> {
+            ViewWithBinder view = new ViewWithBinder(
+                    context.getBean(SpringBinderFactory.class).createBeanValidation(RaceResult.class));
+            assertThatNoException().isThrownBy(() -> serialize(view));
+        });
+    }
+
+    /**
+     * A restored form keeps the values it was showing, so nothing looks wrong until something has to be
+     * converted. That is the price of being serializable at all, and the reason the message has to name
+     * the cause: the session may have been restored on another node entirely.
+     */
+    @Test
+    void aRestoredBinder_cannotConvert_andSaysWhy() {
+        contextRunner.run(context -> {
+            DurationForm form =
+                    boundForm(context.getBean(SpringBinderFactory.class).create(RaceResult.class));
+
+            DurationForm restored = roundTrip(form);
+            assertThat(restored.duration.getValue()).isEqualTo("120M");
+
+            restored.duration.setValue("90S");
+            assertThat(restored.duration.isInvalid()).isTrue();
+            assertThat(restored.duration.getErrorMessage())
+                    .contains("restored from a serialized session")
+                    .contains("SpringBinderFactory");
+        });
+    }
+
+    @Test
+    void aRestoredValidator_cannotValidate_andSaysWhy() {
+        contextRunner.run(context -> {
+            ValidatorFactory validatorFactory =
+                    context.getBean(BinderValidatorFactory.class).get();
+            SpringBeanValidator restored =
+                    roundTrip(new SpringBeanValidator(RaceResult.class, "team", validatorFactory));
+
+            assertThatExceptionOfType(IllegalStateException.class)
+                    .isThrownBy(restored::getJavaxBeanValidator)
+                    .withMessageContaining("restored from a serialized session");
+        });
+    }
+
+    /**
+     * The factory and the provider reach into the Spring context, so unlike the binders they cannot
+     * travel. They are the one thing a view still has to keep in a {@code transient} field.
+     */
     @Test
     void factoryAndProvider_cannotBeSerialized() {
         contextRunner.withBean(ProviderHolder.class).run(context -> {
@@ -131,45 +205,5 @@ class SerializationTest {
         ProviderHolder(SpringBinderProvider<RaceResult> provider) {
             this.provider = provider;
         }
-    }
-
-    /** A view keeping a binder in an ordinary field takes the whole session down with it. */
-    @Test
-    void aViewHoldingABinderInAPlainField_cannotBeSerialized() {
-        contextRunner.run(context -> {
-            ViewWithBinder view = new ViewWithBinder(
-                    context.getBean(SpringBinderFactory.class).create(RaceResult.class));
-            assertThatExceptionOfType(NotSerializableException.class).isThrownBy(() -> serialize(view));
-        });
-    }
-
-    /** The documented way works: the field is skipped, and the rest of the view serializes. */
-    @Test
-    void aViewHoldingABinderInATransientField_canBeSerialized() {
-        contextRunner.run(context -> {
-            ViewWithTransientBinder view = new ViewWithTransientBinder(
-                    context.getBean(SpringBinderFactory.class).createBeanValidation(RaceResult.class));
-            assertThat(view.binder).isNotNull();
-            assertThatNoException().isThrownBy(() -> serialize(view));
-        });
-    }
-
-    /**
-     * Failing at write time is the point: nothing about a binder makes it usable again on the other
-     * side, so a session must never contain one in the first place.
-     */
-    @Test
-    void theConverterFactoryIsPartOfTheSerializedForm() {
-        contextRunner.run(context -> {
-            SpringBinder<RaceResult> binder =
-                    context.getBean(SpringBinderFactory.class).create(RaceResult.class);
-            // Reaching the ConversionService through the converter factory is what triggers the
-            // failure; a transient converter factory would hide it and restore a broken binder.
-            // The assertion names the conversion service rather than one implementation of it, since
-            // which one a binder holds depends on what the application declares.
-            assertThatExceptionOfType(NotSerializableException.class)
-                    .isThrownBy(() -> serialize(binder))
-                    .withMessageContaining("ConversionService");
-        });
     }
 }

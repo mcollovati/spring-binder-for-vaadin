@@ -17,11 +17,12 @@ package com.github.mcollovati.springbinder.data;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Duration {
+public class Duration implements Serializable {
 
     @Min(0) private long amount;
 

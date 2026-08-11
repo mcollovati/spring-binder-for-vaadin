@@ -52,9 +52,11 @@
  *
  * <h2>Serialization</h2>
  *
- * <p>Binders, providers and the factory are deliberately <strong>not</strong> serializable. See {@link
- * com.github.mcollovati.springbinder.AbstractSpringBinder} for why, and for what a clustered or
- * session-passivating deployment has to do about it.
+ * <p>Binders are serializable; {@link com.github.mcollovati.springbinder.SpringBinderFactory} and
+ * {@link com.github.mcollovati.springbinder.SpringBinderProvider} are not. The Spring wiring inside a
+ * binder does not travel, so one restored from a session can convert and validate nothing, and the
+ * form has to be built again. See {@link com.github.mcollovati.springbinder.AbstractSpringBinder} for
+ * what a clustered or session-passivating deployment has to do about it.
  *
  * <h2>Nullness</h2>
  *

@@ -45,11 +45,15 @@ public class SpringConverterFactory implements ConverterFactory {
             double.class, Double.class);
 
     /**
-     * Deliberately not {@code transient}. A {@link ConversionService} is generally not serializable,
-     * and skipping it would produce a factory that deserializes into one unable to convert anything.
-     * Keeping it in the serialized form means the attempt fails immediately, naming the service.
+     * {@code transient} because a {@link ConversionService} is generally not serializable, and this
+     * factory has to be: every converter it hands to a binding captures it, so a bound field would
+     * otherwise drag the conversion service into the serialized session and fail the write.
+     *
+     * <p>It is therefore {@literal null} on a binder restored from a serialized session, and {@link
+     * #conversionService()} reports that rather than letting a {@link NullPointerException} surface
+     * somewhere else. See {@link AbstractSpringBinder} for what a view has to do about it.
      */
-    private final ConversionService service;
+    private final transient @Nullable ConversionService service;
 
     private final ConverterFactory fallback;
     private final ConversionOrder order;
@@ -110,7 +114,9 @@ public class SpringConverterFactory implements ConverterFactory {
      * a round trip.
      */
     private <P, M> Optional<Converter<P, M>> springConverter(Class<P> presentationType, Class<M> modelType) {
-        if (!service.canConvert(presentationType, modelType) || !service.canConvert(modelType, presentationType)) {
+        ConversionService conversionService = conversionService();
+        if (!conversionService.canConvert(presentationType, modelType)
+                || !conversionService.canConvert(modelType, presentationType)) {
             return Optional.empty();
         }
         return Optional.of(Converter.from(
@@ -120,8 +126,28 @@ public class SpringConverterFactory implements ConverterFactory {
     }
 
     private <T> @Nullable T convert(@Nullable Object value, Class<T> targetType) {
-        Object converted = service.convert(value, targetType);
+        Object converted = conversionService().convert(value, targetType);
         return converted != null ? wrapperType(targetType).cast(converted) : null;
+    }
+
+    /**
+     * Returns the conversion service, and explains itself when there is none.
+     *
+     * <p>The only way to reach a {@literal null} here is a factory that came back from a serialized
+     * session, where the service was skipped as {@code transient}. Saying so beats the {@link
+     * NullPointerException} the caller would get otherwise, since the cause — a session written and
+     * restored, possibly on another node — is nowhere near the failing conversion.
+     *
+     * @return the conversion service, never {@literal null}.
+     * @throws IllegalStateException when the factory was restored from a serialized session.
+     */
+    private ConversionService conversionService() {
+        if (service == null) {
+            throw new IllegalStateException("This binder has no ConversionService because it was restored from a "
+                    + "serialized session, which does not carry one. Build the form again from a freshly injected "
+                    + "binder or from SpringBinderFactory instead of reusing a restored one.");
+        }
+        return service;
     }
 
     /**

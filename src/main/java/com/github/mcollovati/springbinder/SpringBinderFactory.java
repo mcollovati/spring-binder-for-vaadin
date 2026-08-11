@@ -49,10 +49,13 @@ package com.github.mcollovati.springbinder;
  * build binders in tests as well, instead of calling a constructor and getting different conversion
  * behaviour than production.
  *
- * <p><strong>Not serializable.</strong> The factory reaches into the Spring context, so like the
+ * <p><strong>Not serializable.</strong> The factory reaches into the Spring context, so unlike the
  * binders it creates it cannot be part of a serialized HTTP session. Hold it in a {@code transient}
- * field of a Vaadin component, or take it as a constructor parameter and do not keep it at all. See
- * {@link AbstractSpringBinder} for why this cannot be worked around.
+ * field of a Vaadin component, or take it as a constructor parameter and do not keep it at all.
+ *
+ * <p>It is also how a view recovers after a session was restored: the binder that came back cannot
+ * convert any more, so the form has to be built again, and this factory is what builds it. See {@link
+ * AbstractSpringBinder} for the whole picture.
  *
  * @see SpringBinderProvider
  *

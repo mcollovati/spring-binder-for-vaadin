@@ -38,7 +38,12 @@ public class SpringBinderView extends VerticalLayout {
     static final String LOG_ID = "log";
     static final String SAVE_ID = "save";
 
-    private final Binder<RaceResult> binder;
+    /**
+     * {@code transient} because that is what a view should do, even though nothing here serializes a
+     * session: session replication tooling re-injects a {@code transient} field that held a Spring bean,
+     * so the field comes back as a usable binder instead of the inert one deserialization would give.
+     */
+    private final transient Binder<RaceResult> binder;
 
     private final DatePicker date = new DatePicker("Date");
     private final TextField team = new TextField("Team");
