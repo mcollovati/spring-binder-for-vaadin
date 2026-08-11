@@ -15,7 +15,6 @@
  */
 package com.github.mcollovati.springbinder;
 
-import com.vaadin.flow.data.binder.Binder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,13 +35,13 @@ import com.github.mcollovati.springbinder.fields.TestField;
 class SpringBinderInjectionTest {
 
     @Autowired
-    Binder<Person> binder;
+    SpringBinder<Person> binder;
 
     @Autowired
-    Binder<Person> binder2;
+    SpringBinder<Person> binder2;
 
     @Autowired
-    Binder<Duration> binder3;
+    SpringBinder<Duration> binder3;
 
     @Autowired
     Form form;
@@ -50,9 +49,7 @@ class SpringBinderInjectionTest {
     @Test
     void injectedBinder_isPrototype() {
         Assertions.assertInstanceOf(AbstractSpringBinder.class, binder);
-        Assertions.assertFalse(binder instanceof SpringBeanValidationBinder);
         Assertions.assertInstanceOf(AbstractSpringBinder.class, binder2);
-        Assertions.assertFalse(binder2 instanceof SpringBeanValidationBinder);
 
         Assertions.assertNotSame(binder, binder2);
 
@@ -68,7 +65,6 @@ class SpringBinderInjectionTest {
     @Test
     void injectBinder_differentBeanType() {
         Assertions.assertInstanceOf(AbstractSpringBinder.class, binder3);
-        Assertions.assertFalse(binder3 instanceof SpringBeanValidationBinder);
 
         Assertions.assertNotSame(binder3, binder);
         Assertions.assertNotSame(binder3, binder2);
@@ -116,7 +112,6 @@ class SpringBinderInjectionTest {
     @Test
     void componentWithInjectedBinder_automaticBinding() {
         Assertions.assertInstanceOf(AbstractSpringBinder.class, form.binder);
-        Assertions.assertFalse(form.binder instanceof SpringBeanValidationBinder);
         Assertions.assertNotSame(form.binder, binder);
         Assertions.assertNotSame(form.binder, binder2);
 
@@ -142,13 +137,13 @@ class SpringBinderInjectionTest {
     @Component
     public static class Form {
 
-        Binder<Person> binder;
+        SpringBinder<Person> binder;
         TestField<String> name = new TestField<>(String.class, "");
 
         public Form() {}
 
         @Autowired
-        public Form(Binder<Person> binder) {
+        public Form(SpringBinder<Person> binder) {
             this.binder = binder;
             this.binder.bindInstanceFields(this);
         }

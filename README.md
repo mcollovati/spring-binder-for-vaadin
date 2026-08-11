@@ -85,13 +85,21 @@ Converter<String, LocalDate> stringToLocalDate() {
 
 ### Bean validation
 
-With `spring-boot-starter-validation` on the classpath (that is: with a
-`ValidatorFactory` bean available), inject `SpringBeanValidationBinder` to get
-JSR-303 constraints applied automatically, including the required indicator:
+With a JSR-303 provider on the classpath — Hibernate Validator already arrives
+transitively with `vaadin-spring`, so usually there is nothing to add — inject
+`SpringBeanValidationBinder` to get JSR-303 constraints applied automatically,
+including the required indicator:
 
 ```java
 public RaceResultView(SpringBeanValidationBinder<RaceResult> binder) { ... }
 ```
+
+Validation runs through the application's `ValidatorFactory` bean when there is
+one, which is what `spring-boot-starter-validation` registers. Without that
+starter the add-on builds a factory of its own, backed by the application
+context so that constraint validators can still be Spring beans. Either way the
+binder validates like Vaadin's own `BeanValidationBinder`, and adopting the
+add-on does not force a new starter on the application.
 
 Constraint messages are interpolated by the `ValidatorFactory`'s
 `MessageInterpolator` using the locale of the current Vaadin UI, so
