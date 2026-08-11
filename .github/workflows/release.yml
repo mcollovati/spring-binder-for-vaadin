@@ -28,6 +28,12 @@ on:
 permissions:
   contents: write
 
+# Releases queue instead of running side by side, and are never cancelled halfway
+# through publishing
+concurrency:
+  group: release-${{ inputs.target-branch }}
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Release
