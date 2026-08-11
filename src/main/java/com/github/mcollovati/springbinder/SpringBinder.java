@@ -23,8 +23,24 @@ import org.springframework.core.convert.ConversionService;
  * A {@link com.vaadin.flow.data.binder.Binder} extension integrated with Spring
  * {@link ConversionService}.
  *
- * <p>Spring {@link ConversionService} is used to provide suitable converters for bindings when
- * presentation and model types are not compatible.
+ * <p>Spring {@link ConversionService} supplies the converter when the type of a field and the type of
+ * the property it is bound to differ. This applies to the properties bound by
+ * {@link Binder#bindInstanceFields(Object)}; {@code bind(field, "property")} and
+ * {@code forField(field).bind("property")} do not consult it, and fail on a type mismatch as they
+ * would without this add-on.
+ *
+ * <h2>Session serialization</h2>
+ *
+ * <p>This binder is serializable, but the {@link ConversionService} it converts through is not, and is
+ * therefore {@code transient}. A binder that comes back from a serialized session <strong>cannot
+ * convert anything</strong>: the first conversion fails with an {@link IllegalStateException} saying so,
+ * either as an error on the field or thrown from {@code readBean}.
+ *
+ * <p>Declaring the field that holds it {@code transient} does not keep it out of the session — Vaadin
+ * registers a value change listener on every bound field and that listener holds the binder — so a view
+ * that survives session serialization has to build its form again rather than reuse what came back.
+ * {@link AbstractSpringBinder} has the full contract, including what session replication tooling
+ * changes about it.
  *
  * @param <BEAN> the type of the bean.
  *
