@@ -17,11 +17,14 @@ package com.github.mcollovati.springbinder;
 
 import jakarta.validation.ValidatorFactory;
 import java.util.List;
+import java.util.Locale;
 
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.BinderValidationStatus;
 import com.vaadin.flow.data.binder.BindingValidationStatus;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +65,25 @@ public class SpringBeanValidationBinderTest extends SpringBinderTest {
 
     @Autowired
     ValidatorFactory validatorFactory;
+
+    private Locale defaultLocale;
+
+    /**
+     * Constraint messages are interpolated for the locale of the current UI, which falls back to the
+     * JVM default when there is no UI, as in these tests. Pinning it keeps the expected messages
+     * independent of the machine running the build; {@link SpringBeanValidatorTest} covers the
+     * translated messages.
+     */
+    @BeforeEach
+    void pinDefaultLocale() {
+        defaultLocale = Locale.getDefault();
+        Locale.setDefault(Locale.ENGLISH);
+    }
+
+    @AfterEach
+    void restoreDefaultLocale() {
+        Locale.setDefault(defaultLocale);
+    }
 
     @Override
     protected <BEAN> Binder<BEAN> createBinder(Class<BEAN> type, ConversionService service) {
