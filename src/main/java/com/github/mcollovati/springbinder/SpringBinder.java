@@ -27,6 +27,8 @@ import org.springframework.core.convert.ConversionService;
  * presentation and model types are not compatible.
  *
  * @param <BEAN> the type of the bean.
+ *
+ * @since 1.0
  */
 public class SpringBinder<BEAN> extends AbstractSpringBinder<BEAN> {
 

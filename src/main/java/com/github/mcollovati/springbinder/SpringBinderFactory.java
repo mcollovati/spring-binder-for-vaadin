@@ -55,6 +55,8 @@ package com.github.mcollovati.springbinder;
  * {@link AbstractSpringBinder} for why this cannot be worked around.
  *
  * @see SpringBinderProvider
+ *
+ * @since 1.0
  */
 public interface SpringBinderFactory {
 
@@ -71,6 +73,7 @@ public interface SpringBinderFactory {
      *     {@literal null}.
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     <BEAN> SpringBinder<BEAN> create(
             Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionOrder conversionOrder);
@@ -85,6 +88,7 @@ public interface SpringBinderFactory {
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(
             Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionOrder conversionOrder);
@@ -94,6 +98,7 @@ public interface SpringBinderFactory {
      * {@code springbinder.conversion.order}.
      *
      * @return the default conversion order, never {@literal null}.
+     * @since 1.0
      */
     ConversionOrder getConversionOrder();
 
@@ -103,6 +108,7 @@ public interface SpringBinderFactory {
      * @param beanType the bean type to bind, not {@literal null}.
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default <BEAN> SpringBinder<BEAN> create(Class<BEAN> beanType) {
         return create(beanType, false, getConversionOrder());
@@ -116,6 +122,7 @@ public interface SpringBinderFactory {
      * @param scanNestedDefinitions if true, scan for nested property definitions as well.
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default <BEAN> SpringBinder<BEAN> create(Class<BEAN> beanType, boolean scanNestedDefinitions) {
         return create(beanType, scanNestedDefinitions, getConversionOrder());
@@ -130,6 +137,7 @@ public interface SpringBinderFactory {
      *     {@literal null}.
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default <BEAN> SpringBinder<BEAN> create(Class<BEAN> beanType, ConversionOrder conversionOrder) {
         return create(beanType, false, conversionOrder);
@@ -142,6 +150,7 @@ public interface SpringBinderFactory {
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(Class<BEAN> beanType) {
         return createBeanValidation(beanType, false, getConversionOrder());
@@ -156,6 +165,7 @@ public interface SpringBinderFactory {
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(
             Class<BEAN> beanType, boolean scanNestedDefinitions) {
@@ -172,6 +182,7 @@ public interface SpringBinderFactory {
      * @param <BEAN> the bean type.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(
             Class<BEAN> beanType, ConversionOrder conversionOrder) {

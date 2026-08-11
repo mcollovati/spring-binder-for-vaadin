@@ -17,6 +17,7 @@ package com.github.mcollovati.springbinder;
 
 import jakarta.validation.ValidatorFactory;
 
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationContext;
@@ -40,7 +41,7 @@ class BinderValidatorFactory implements DisposableBean {
 
     private final ObjectProvider<ValidatorFactory> applicationValidatorFactory;
     private final ApplicationContext applicationContext;
-    private volatile LocalValidatorFactoryBean fallback;
+    private volatile @Nullable LocalValidatorFactoryBean fallback;
 
     BinderValidatorFactory(
             ObjectProvider<ValidatorFactory> applicationValidatorFactory, ApplicationContext applicationContext) {

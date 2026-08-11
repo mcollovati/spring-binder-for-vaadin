@@ -27,6 +27,8 @@ import org.springframework.core.convert.ConversionService;
  * constructor, and every type can be converted <em>to</em> {@link String} through {@code
  * toString()}. Those generic conversions are rarely what a form field wants, as they ignore the
  * locale and produce technical error messages.
+ *
+ * @since 1.0
  */
 public enum ConversionOrder {
 

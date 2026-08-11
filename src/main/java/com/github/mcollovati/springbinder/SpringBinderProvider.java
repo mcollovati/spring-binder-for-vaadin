@@ -50,6 +50,8 @@ package com.github.mcollovati.springbinder;
  *
  * @param <BEAN> the bean type the binders bind, taken from the injection point.
  * @see SpringBinderFactory
+ *
+ * @since 1.0
  */
 public interface SpringBinderProvider<BEAN> {
 
@@ -64,6 +66,7 @@ public interface SpringBinderProvider<BEAN> {
      * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
      *     {@literal null}.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     SpringBinder<BEAN> create(boolean scanNestedDefinitions, ConversionOrder conversionOrder);
 
@@ -75,6 +78,7 @@ public interface SpringBinderProvider<BEAN> {
      *     {@literal null}.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     SpringBeanValidationBinder<BEAN> createBeanValidation(
             boolean scanNestedDefinitions, ConversionOrder conversionOrder);
@@ -84,6 +88,7 @@ public interface SpringBinderProvider<BEAN> {
      * {@code springbinder.conversion.order}.
      *
      * @return the default conversion order, never {@literal null}.
+     * @since 1.0
      */
     ConversionOrder getConversionOrder();
 
@@ -91,6 +96,7 @@ public interface SpringBinderProvider<BEAN> {
      * Creates a binder for the bean type of this provider.
      *
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default SpringBinder<BEAN> create() {
         return create(false, getConversionOrder());
@@ -102,6 +108,7 @@ public interface SpringBinderProvider<BEAN> {
      *
      * @param scanNestedDefinitions if true, scan for nested property definitions as well.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default SpringBinder<BEAN> create(boolean scanNestedDefinitions) {
         return create(scanNestedDefinitions, getConversionOrder());
@@ -114,6 +121,7 @@ public interface SpringBinderProvider<BEAN> {
      * @param conversionOrder whether Vaadin or Spring provides the converter when both can, not
      *     {@literal null}.
      * @return a new binder, never {@literal null}.
+     * @since 1.0
      */
     default SpringBinder<BEAN> create(ConversionOrder conversionOrder) {
         return create(false, conversionOrder);
@@ -124,6 +132,7 @@ public interface SpringBinderProvider<BEAN> {
      *
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default SpringBeanValidationBinder<BEAN> createBeanValidation() {
         return createBeanValidation(false, getConversionOrder());
@@ -136,6 +145,7 @@ public interface SpringBinderProvider<BEAN> {
      * @param scanNestedDefinitions if true, scan for nested property definitions as well.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default SpringBeanValidationBinder<BEAN> createBeanValidation(boolean scanNestedDefinitions) {
         return createBeanValidation(scanNestedDefinitions, getConversionOrder());
@@ -149,6 +159,7 @@ public interface SpringBinderProvider<BEAN> {
      *     {@literal null}.
      * @return a new binder, never {@literal null}.
      * @throws IllegalStateException if no JSR-303 provider is available.
+     * @since 1.0
      */
     default SpringBeanValidationBinder<BEAN> createBeanValidation(ConversionOrder conversionOrder) {
         return createBeanValidation(false, conversionOrder);

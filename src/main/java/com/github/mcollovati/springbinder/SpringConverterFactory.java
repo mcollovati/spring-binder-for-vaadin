@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import com.vaadin.flow.data.converter.Converter;
 import com.vaadin.flow.data.converter.ConverterFactory;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.convert.ConversionService;
 
 /**
@@ -28,6 +29,8 @@ import org.springframework.core.convert.ConversionService;
  *
  * <p>Which of the two is asked first is defined by {@link ConversionOrder}; whichever is asked
  * second is used for the conversions the first one cannot provide.
+ *
+ * @since 1.0
  */
 public class SpringConverterFactory implements ConverterFactory {
 
@@ -116,7 +119,7 @@ public class SpringConverterFactory implements ConverterFactory {
                 SpringConverterFactory::conversionErrorMessage));
     }
 
-    private <T> T convert(Object value, Class<T> targetType) {
+    private <T> @Nullable T convert(@Nullable Object value, Class<T> targetType) {
         Object converted = service.convert(value, targetType);
         return converted != null ? wrapperType(targetType).cast(converted) : null;
     }

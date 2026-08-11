@@ -26,6 +26,8 @@ import com.vaadin.flow.data.validator.BeanValidator;
  *
  * <p>Values passed to this validator are compared against the constraints, if any, specified by
  * annotations on the corresponding bean property.
+ *
+ * @since 1.0
  */
 public class SpringBeanValidator extends BeanValidator {
 

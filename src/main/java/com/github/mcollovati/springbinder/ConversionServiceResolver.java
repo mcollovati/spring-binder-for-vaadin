@@ -19,6 +19,7 @@ import java.util.Arrays;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -62,7 +63,7 @@ class ConversionServiceResolver implements SmartInitializingSingleton {
     private final ObjectProvider<ConversionService> binderConversionService;
     private final ObjectProvider<ConversionService> applicationConversionService;
     private final ApplicationContext applicationContext;
-    private volatile ConversionService fallback;
+    private volatile @Nullable ConversionService fallback;
 
     ConversionServiceResolver(
             ObjectProvider<ConversionService> binderConversionService,
@@ -103,7 +104,7 @@ class ConversionServiceResolver implements SmartInitializingSingleton {
      * @return the conversion service qualified with {@link BinderConversionService}, or {@literal
      *     null} when there is none.
      */
-    private ConversionService qualifiedConversionService() {
+    private @Nullable ConversionService qualifiedConversionService() {
         try {
             return binderConversionService.getIfAvailable();
         } catch (NoUniqueBeanDefinitionException ex) {

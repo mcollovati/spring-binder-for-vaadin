@@ -20,6 +20,7 @@ import java.util.Optional;
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.converter.ConverterFactory;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.support.DefaultConversionService;
 
@@ -57,6 +58,8 @@ import org.springframework.core.convert.support.DefaultConversionService;
  * fresh injection. There is no way to restore the bindings themselves.
  *
  * @param <BEAN> the type of the bean.
+ *
+ * @since 1.0
  */
 public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
 
@@ -66,7 +69,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
      */
     private final SpringConverterFactory converterFactory;
 
-    private final Class<BEAN> beanType;
+    private final @Nullable Class<BEAN> beanType;
 
     /**
      * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
@@ -160,6 +163,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
      *
      * @return the bean type, or an empty optional when the binder was created from a {@link
      *     PropertySet}, which does not carry one.
+     * @since 1.0
      */
     public Optional<Class<BEAN>> findBeanType() {
         return Optional.ofNullable(beanType);

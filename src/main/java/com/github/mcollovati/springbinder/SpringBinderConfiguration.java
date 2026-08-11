@@ -35,6 +35,24 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.core.convert.ConversionService;
 
+/**
+ * Registers the injectable binders, the {@link SpringBinderFactory} and the {@link
+ * SpringBinderProvider}.
+ *
+ * <p>It is a Spring Boot auto-configuration, listed in {@code
+ * META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}, so an application
+ * needs neither {@code @Import} nor an {@code @Enable} annotation. Every bean is conditional on the
+ * application not having declared its own, and the validating binder additionally on a JSR-303
+ * provider being present.
+ *
+ * <p>Binders are prototype scoped and take their bean type from the generic parameter of the injection
+ * point, which is why they can only be injected: resolving {@code getBean(SpringBinder.class)}
+ * programmatically has no injection point to read, and fails. Use {@link SpringBinderFactory} instead.
+ *
+ * @see SpringBinderProperties
+ * @see BinderConversionService
+ * @since 1.0
+ */
 @AutoConfiguration
 @ConditionalOnClass(Binder.class)
 @EnableConfigurationProperties(SpringBinderProperties.class)
