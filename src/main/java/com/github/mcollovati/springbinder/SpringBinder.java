@@ -46,10 +46,41 @@ public class SpringBinder<BEAN> extends AbstractSpringBinder<BEAN> {
      * compatible.
      *
      * @param beanType the bean type to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    public SpringBinder(Class<BEAN> beanType, ConversionService conversionService, ConversionOrder conversionOrder) {
+        super(beanType, conversionService, conversionOrder);
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService}
+     * to provide suitable converters for bindings when presentation and model types are not
+     * compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
      * @param scanNestedDefinitions if true, scan for nested property definitions as well
      * @param conversionService the conversion service.
      */
     public SpringBinder(Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionService conversionService) {
         super(beanType, scanNestedDefinitions, conversionService);
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService}
+     * to provide suitable converters for bindings when presentation and model types are not
+     * compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    public SpringBinder(
+            Class<BEAN> beanType,
+            boolean scanNestedDefinitions,
+            ConversionService conversionService,
+            ConversionOrder conversionOrder) {
+        super(beanType, scanNestedDefinitions, conversionService, conversionOrder);
     }
 }

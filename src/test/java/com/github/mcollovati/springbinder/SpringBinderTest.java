@@ -38,8 +38,14 @@ import static org.mockito.Mockito.when;
 
 class SpringBinderTest {
 
+    /**
+     * These tests exercise the Spring conversion path, so they pin {@link
+     * ConversionOrder#SPRING_FIRST}: with the default order a pair Vaadin also knows, such as {@code
+     * String <-> Date}, is converted by Vaadin instead. Both orders are covered by {@link
+     * ConversionOrderTest}.
+     */
     protected <BEAN> Binder<BEAN> createBinder(Class<BEAN> type, ConversionService service) {
-        return new SpringBinder<>(type, service);
+        return new SpringBinder<>(type, service, ConversionOrder.SPRING_FIRST);
     }
 
     @Test

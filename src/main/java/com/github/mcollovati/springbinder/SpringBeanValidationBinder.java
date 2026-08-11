@@ -50,7 +50,7 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
      *
      * @param beanType the bean type to use, not {@literal null}.
      * @param conversionService the conversion service.
-     * @param validatorFactory
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
      */
     public SpringBeanValidationBinder(
             Class<BEAN> beanType, ConversionService conversionService, ValidatorFactory validatorFactory) {
@@ -64,8 +64,28 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
      * provide suitable converters for bindings when presentation and model types are not compatible.
      *
      * @param beanType the bean type to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    public SpringBeanValidationBinder(
+            Class<BEAN> beanType,
+            ConversionService conversionService,
+            ValidatorFactory validatorFactory,
+            ConversionOrder conversionOrder) {
+        super(beanType, conversionService, conversionOrder);
+        this.beanType = beanType;
+        this.validatorFactory = validatorFactory;
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
+     * provide suitable converters for bindings when presentation and model types are not compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
      * @param scanNestedDefinitions if true, scan for nested property definitions as well
      * @param conversionService the conversion service.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
      */
     public SpringBeanValidationBinder(
             Class<BEAN> beanType,
@@ -73,6 +93,27 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             ConversionService conversionService,
             ValidatorFactory validatorFactory) {
         super(beanType, scanNestedDefinitions, conversionService);
+        this.beanType = beanType;
+        this.validatorFactory = validatorFactory;
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
+     * provide suitable converters for bindings when presentation and model types are not compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well
+     * @param conversionService the conversion service.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    public SpringBeanValidationBinder(
+            Class<BEAN> beanType,
+            boolean scanNestedDefinitions,
+            ConversionService conversionService,
+            ValidatorFactory validatorFactory,
+            ConversionOrder conversionOrder) {
+        super(beanType, scanNestedDefinitions, conversionService, conversionOrder);
         this.beanType = beanType;
         this.validatorFactory = validatorFactory;
     }
@@ -104,7 +145,7 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
     @Override
     protected BindingBuilder<BEAN, ?> configureBinding(
             BindingBuilder<BEAN, ?> binding, PropertyDefinition<BEAN, ?> definition) {
-        Class<?> actualBeanType = findBeanType(beanType, definition);
+        Class<?> actualBeanType = findBeanType(definition);
         BeanValidator validator =
                 new SpringBeanValidator(actualBeanType, definition.getTopLevelName(), validatorFactory);
         if (requiredConfigurator != null) {
@@ -116,20 +157,18 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
     /**
      * Finds the bean type containing the property the given definition refers to.
      *
-     * @param beanType the root beanType
      * @param definition the definition for the property
      * @return the bean type containing the given property
      */
     @SuppressWarnings({"rawtypes"})
-    private Class<?> findBeanType(Class<BEAN> beanType, PropertyDefinition<BEAN, ?> definition) {
+    private Class<?> findBeanType(PropertyDefinition<BEAN, ?> definition) {
         if (definition instanceof BeanPropertySet.NestedBeanPropertyDefinition) {
             return ((BeanPropertySet.NestedBeanPropertyDefinition) definition)
                     .getParent()
                     .getType();
-        } else {
-            // Non nested properties must be defined in the main type
-            return beanType;
         }
+        // Non nested properties must be defined in the main type
+        return beanType;
     }
 
     private void configureRequired(

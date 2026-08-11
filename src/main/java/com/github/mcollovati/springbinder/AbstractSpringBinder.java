@@ -36,8 +36,21 @@ abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
      * @param conversionService the conversion service.
      */
     protected AbstractSpringBinder(Class<BEAN> beanType, ConversionService conversionService) {
+        this(beanType, conversionService, ConversionOrder.VAADIN_FIRST);
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
+     * provide suitable converters for bindings when presentation and model types are not compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    protected AbstractSpringBinder(
+            Class<BEAN> beanType, ConversionService conversionService, ConversionOrder conversionOrder) {
         super(beanType);
-        this.converterFactory = new SpringConverterFactory(conversionService, super.getConverterFactory());
+        this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
     /**
@@ -50,8 +63,30 @@ abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
      */
     protected AbstractSpringBinder(
             Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionService conversionService) {
+        this(beanType, scanNestedDefinitions, conversionService, ConversionOrder.VAADIN_FIRST);
+    }
+
+    /**
+     * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
+     * provide suitable converters for bindings when presentation and model types are not compatible.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     * @param scanNestedDefinitions if true, scan for nested property definitions as well
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    protected AbstractSpringBinder(
+            Class<BEAN> beanType,
+            boolean scanNestedDefinitions,
+            ConversionService conversionService,
+            ConversionOrder conversionOrder) {
         super(beanType, scanNestedDefinitions);
-        this.converterFactory = new SpringConverterFactory(conversionService, super.getConverterFactory());
+        this.converterFactory = createConverterFactory(conversionService, conversionOrder);
+    }
+
+    private SpringConverterFactory createConverterFactory(
+            ConversionService conversionService, ConversionOrder conversionOrder) {
+        return new SpringConverterFactory(conversionService, super.getConverterFactory(), conversionOrder);
     }
 
     @Override

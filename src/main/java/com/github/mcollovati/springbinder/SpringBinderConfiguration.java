@@ -19,31 +19,38 @@ import jakarta.validation.ValidatorFactory;
 import java.util.Objects;
 
 import com.vaadin.flow.data.binder.Binder;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.config.DependencyDescriptor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
 import org.springframework.context.support.ConversionServiceFactoryBean;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.core.convert.support.DefaultConversionService;
 
 @AutoConfiguration
 @ConditionalOnClass(Binder.class)
+@EnableConfigurationProperties(SpringBinderProperties.class)
 public class SpringBinderConfiguration {
 
-    @SuppressWarnings("unchecked")
     @Bean
     @Scope(BeanDefinition.SCOPE_PROTOTYPE)
     @ConditionalOnMissingBean
-    <BEAN> SpringBinder<BEAN> createBinder(DependencyDescriptor descriptor, ConversionService conversionService) {
-        Class<BEAN> beanType =
-                (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
-        Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
-        return new SpringBinder<>(beanType, conversionService);
+    <BEAN> SpringBinder<BEAN> createBinder(
+            DependencyDescriptor descriptor,
+            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
+            ObjectProvider<ConversionService> conversionService,
+            SpringBinderProperties properties) {
+        return new SpringBinder<>(
+                beanType(descriptor),
+                resolveConversionService(binderConversionService, conversionService),
+                properties.getConversion().getOrder());
     }
 
     /**
@@ -56,16 +63,47 @@ public class SpringBinderConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnBean(ValidatorFactory.class)
     <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidationBinder(
-            DependencyDescriptor descriptor, ConversionService conversionService, ValidatorFactory validatorFactory) {
-        Class<BEAN> beanType =
-                (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
-        Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
-        return new SpringBeanValidationBinder<>(beanType, conversionService, validatorFactory);
+            DependencyDescriptor descriptor,
+            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
+            ObjectProvider<ConversionService> conversionService,
+            ValidatorFactory validatorFactory,
+            SpringBinderProperties properties) {
+        return new SpringBeanValidationBinder<>(
+                beanType(descriptor),
+                resolveConversionService(binderConversionService, conversionService),
+                validatorFactory,
+                properties.getConversion().getOrder());
     }
 
     @Bean
     @ConditionalOnMissingBean(ConversionService.class)
     ConversionServiceFactoryBean conversionServiceFactoryBean() {
         return new ConversionServiceFactoryBean();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <BEAN> Class<BEAN> beanType(DependencyDescriptor descriptor) {
+        Class<BEAN> beanType =
+                (Class<BEAN>) descriptor.getResolvableType().getGeneric(0).resolve();
+        Objects.requireNonNull(beanType, "Unable to resolve bean type from " + descriptor.getResolvableType());
+        return beanType;
+    }
+
+    /**
+     * Picks the {@link ConversionService} the binders should use: one qualified with {@link
+     * BinderConversionService} when present, otherwise the application's own.
+     *
+     * <p>Both are looked up with {@link ObjectProvider#getIfUnique()}, so an application declaring
+     * several {@link ConversionService} beans without marking one as primary gets a working binder
+     * based on the shared {@link DefaultConversionService} instead of a failing injection point.
+     */
+    private static ConversionService resolveConversionService(
+            ObjectProvider<ConversionService> binderConversionService,
+            ObjectProvider<ConversionService> conversionService) {
+        ConversionService resolved = binderConversionService.getIfUnique();
+        if (resolved == null) {
+            resolved = conversionService.getIfUnique();
+        }
+        return resolved != null ? resolved : DefaultConversionService.getSharedInstance();
     }
 }

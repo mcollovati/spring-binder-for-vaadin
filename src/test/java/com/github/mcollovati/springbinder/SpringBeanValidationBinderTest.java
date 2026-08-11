@@ -66,7 +66,7 @@ public class SpringBeanValidationBinderTest extends SpringBinderTest {
     @Override
     protected <BEAN> Binder<BEAN> createBinder(Class<BEAN> type, ConversionService service) {
 
-        return new SpringBeanValidationBinder<>(type, service, validatorFactory);
+        return new SpringBeanValidationBinder<>(type, service, validatorFactory, ConversionOrder.SPRING_FIRST);
     }
 
     @Test
