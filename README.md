@@ -71,7 +71,8 @@ Converter<Duration, String> durationToString() {
 
 Both directions must be registered — a binding needs to convert in both
 directions, so a one-way Spring conversion is ignored in favour of Vaadin's
-default converter.
+default converter. See [Conversion precedence](#conversion-precedence) for which
+side wins when both can convert a pair.
 
 The same applies to any type, for example a project-wide date format:
 
@@ -105,34 +106,70 @@ To resolve messages from a Spring `MessageSource` instead, expose a
 `LocalValidatorFactoryBean` configured with
 `setValidationMessageSource(messageSource)`.
 
-> **Note:** inject the concrete types (`SpringBinder<T>` /
-> `SpringBeanValidationBinder<T>`). Injecting the base `Binder<T>` resolves to
-> `SpringBinder` when no `ValidatorFactory` bean exists, but is ambiguous when one
-> does, because both binder beans match.
+Injecting the base `Binder<T>` also works: it resolves to
+`SpringBeanValidationBinder` when a `ValidatorFactory` bean exists and to
+`SpringBinder` otherwise. Inject a concrete type when you want to be explicit
+about which one you get.
 
-### Which `ConversionService` is used
+## Conversion precedence
 
-The add-on injects the application's `ConversionService` bean and only registers
-a `DefaultConversionService` of its own if none is present. In a Spring Boot web
-application there usually *is* one already (the format-aware MVC conversion
-service), so `spring.mvc.format.*` settings apply to bindings too.
-
-### Conversion precedence
-
-Spring is asked first, and Vaadin's `DefaultConverterFactory` is the fallback.
+By default Vaadin's own converters are used for the type pairs Vaadin knows, and
+Spring is asked for everything else. That is what you want almost always, because
 Spring's default converters are more eager than they look: `ObjectToObject`
-matches any type with a `valueOf`/`of`/`from`/`String` constructor, and every
-type can convert *to* `String` via `toString()`. So `String <-> java.util.Date`
-is handled by Spring (through the deprecated `new Date(String)` and
-`Date.toString()`) rather than by Vaadin's `StringToDateConverter`, and numeric
-bindings lose Vaadin's locale-aware parsing and error messages.
+matches any type with a `valueOf`/`of`/`from`/`String` constructor, and *every*
+type converts to `String` through `toString()`. Left to Spring, a text field bound
+to a `java.util.Date` would round-trip through the deprecated `new Date(String)`
+and `Date.toString()`, and numeric fields would lose Vaadin's locale-aware parsing
+and its readable error messages.
 
-When that is not what you want, set the converter explicitly on the binding:
+Vaadin only covers common form-field pairs — text to numbers, booleans, dates and
+UUIDs, plus numeric widening — so your own domain types are still converted by
+Spring, which is the point of the add-on.
+
+To let a Spring converter override a pair Vaadin also handles, flip the order:
+
+```properties
+vaadin-spring-binder.conversion.order=spring-first
+```
+
+or per binder:
+
+```java
+new SpringBinder<>(RaceResult.class, conversionService, ConversionOrder.SPRING_FIRST);
+```
+
+A single binding can always opt out on its own, whichever order is configured:
 
 ```java
 binder.forField(dateField)
         .withConverter(new StringToDateConverter())
         .bind(RaceResult::getDate, RaceResult::setDate);
+```
+
+### Which `ConversionService` is used
+
+The add-on uses the application's `ConversionService` bean, and registers a
+`DefaultConversionService` of its own only when there is none. In a Spring Boot
+web application there usually *is* one already — the format-aware MVC conversion
+service — so `spring.mvc.format.*` settings apply to bindings too. If several
+`ConversionService` beans exist and none is `@Primary`, the binders fall back to
+the shared `DefaultConversionService` rather than failing to start.
+
+To give the binders a conversion service of their own, qualify it with
+`@BinderConversionService`. Combined with `spring-first`, a registry built without
+Spring's defaults gives you exactly the conversions you registered and nothing
+else — no `ObjectToObject`, no `toString()` fallback:
+
+```java
+@Bean
+@BinderConversionService
+ConversionService binderConversions(Converter<String, Duration> toDuration,
+        Converter<Duration, String> fromDuration) {
+    GenericConversionService conversions = new GenericConversionService();
+    conversions.addConverter(toDuration);
+    conversions.addConverter(fromDuration);
+    return conversions;
+}
 ```
 
 ## Building
