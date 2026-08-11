@@ -199,42 +199,92 @@ different conversion behaviour than production.
 
 ## Session serialization
 
-**The binders, `SpringBinderFactory` and `SpringBinderProvider` are not
-serializable.** Keep them out of a Vaadin component's serialized state by marking
-the field `transient`:
+All of this only matters if the session is ever serialized — a clustered
+deployment, or a container that passivates sessions to disk. If yours never is,
+skip this section.
+
+**The binders are serializable; `SpringBinderFactory` and `SpringBinderProvider`
+are not.** Keep the factory or the provider out of a component's serialized state
+with a `transient` field, or take it as a constructor parameter and never keep it:
 
 ```java
 @Route("product")
 public class ProductView extends VerticalLayout {
 
-    private final transient SpringBeanValidationBinder<Product> binder;
+    private final transient SpringBinderFactory binders;
 
-    public ProductView(SpringBeanValidationBinder<Product> binder) {
-        this.binder = binder;
+    public ProductView(SpringBinderFactory binders) {
+        this.binders = binders;
+        buildForm();
+    }
+
+    private void buildForm() {
+        SpringBeanValidationBinder<Product> binder = binders.createBeanValidation(Product.class);
         ...
     }
 }
 ```
 
-This only matters if the session is ever serialized — a clustered deployment, or a
-container that passivates sessions to disk. Vaadin's own `Binder` is serializable,
-but these binders hold a Spring `ConversionService`, and the validating one a
-`ValidatorFactory`, neither of which is. Writing a session that reaches one fails
-with a `NotSerializableException` naming the service or the factory.
+A binder does not need it to make the session *writable*: plain `transient` on the
+view's field would not keep the binder out of the session anyway. Vaadin's `Binder`
+registers a value-change listener on every field it binds, and that listener holds
+the binder, so **each bound field reaches it** whatever the view does with its own
+reference. Marking the field `transient` is still worth doing for the reason in
+[Session replication tooling](#session-replication-tooling) below.
 
-That failure is deliberate, and it is the reason the add-on does not simply mark
-those fields `transient` itself. Doing so would let the session be written and then
-restore a binder with no conversion service, failing later and far from the cause.
-Resolving the beans again on the other side is not sound either: Spring's
-serialization support for a bean factory resolves through a registry private to a
-single JVM and **falls back to an empty bean factory** when the entry is missing, so
-a session restored on another node would quietly convert through the wrong service
-and lose every `Converter` bean the application registered.
+### What a restored binder can and cannot do
 
-A `transient` binder is `null` after the session is restored, and its bindings are
-gone with it, so the view has to build its form again — from a fresh injection or
-through `SpringBinderFactory`. There is no way to bring the bindings back; a form
-whose state must survive passivation has to be rebuilt from the bean.
+The Spring wiring does not travel: the `ConversionService`, and the
+`ValidatorFactory` of the validating binder, are `transient`, because neither is
+serializable. A binder restored from a session therefore **cannot convert or
+validate**. It says so rather than guessing — the first conversion fails with
+
+```
+This binder has no ConversionService because it was restored from a serialized
+session, which does not carry one. Build the form again from a freshly injected
+binder or from SpringBinderFactory instead of reusing a restored one.
+```
+
+shown as an error on the field, or thrown from `readBean`/`setBean`.
+
+Note what this means in practice: a restored form still *displays* the values it
+was showing, because those are plain field values. Nothing looks wrong until
+something has to be converted. **Rebuild the form after a restore** — from
+`SpringBinderFactory`, as above — instead of relying on the binder that came back.
+
+The add-on does not try to reconnect a restored binder to the context on its own,
+because Spring's serialization support for a bean factory resolves through a
+registry private to a single JVM and **falls back to an empty bean factory** when
+the entry is missing. A session restored on another node would quietly convert
+through the wrong service and lose every `Converter` bean the application
+registered — silently wrong, which is worse than plainly broken.
+
+### Session replication tooling
+
+Reconnecting is exactly what session replication tooling does do, from the outside
+and with the real context. [Vaadin Kubernetes
+Kit](https://vaadin.com/docs/latest/tools/kubernetes/session-replication) records
+which `transient` fields held Spring beans and re-injects them on deserialization,
+by reflection over the session's object graph. With it:
+
+- Mark a view's binder field `transient`, and it comes back as a freshly injected
+  binder instead of `null`. Its bindings are still gone, so the form is still
+  rebuilt — but from the field, with no need for the factory.
+- Add this add-on's package to the inspected set and a restored binder can be
+  repaired outright, `ConversionService` and `ValidatorFactory` included, with its
+  bindings intact:
+
+  ```properties
+  vaadin.serialization.transients.include-packages=com.example.myapp,com.github.mcollovati.springbinder
+  ```
+
+  The Kit's inspection is normally narrowed to application classes, so the add-on's
+  own `transient` fields are not re-injected unless its package is listed.
+
+This depends on the resolved `ConversionService` actually being a bean. It is in a
+Spring Boot web application, where the MVC conversion service is one; it is not when
+the add-on had to build a service of its own, and there is then nothing for the Kit
+to re-inject. Rebuilding the form is the option that always works.
 
 ## Conversion precedence
 

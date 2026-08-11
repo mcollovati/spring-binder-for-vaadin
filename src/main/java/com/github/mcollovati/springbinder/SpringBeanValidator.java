@@ -20,6 +20,7 @@ import jakarta.validation.ValidatorFactory;
 import java.util.Locale;
 
 import com.vaadin.flow.data.validator.BeanValidator;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Validator using the JSR-303 (jakarta.validation) annotation-based bean validation mechanism.
@@ -31,7 +32,12 @@ import com.vaadin.flow.data.validator.BeanValidator;
  */
 public class SpringBeanValidator extends BeanValidator {
 
-    private final ValidatorFactory validatorFactory;
+    /**
+     * {@code transient} because a {@link ValidatorFactory} is not serializable, and a validator is
+     * held by the binding it was added to, so it travels with a serialized session. It is {@literal
+     * null} on a validator restored from one, and {@link #validatorFactory()} says so.
+     */
+    private final transient @Nullable ValidatorFactory validatorFactory;
 
     /**
      * Creates a new JSR-303 {@code BeanValidator} that validates values of the specified property.
@@ -48,7 +54,23 @@ public class SpringBeanValidator extends BeanValidator {
 
     @Override
     public jakarta.validation.Validator getJavaxBeanValidator() {
-        return validatorFactory.getValidator();
+        return validatorFactory().getValidator();
+    }
+
+    /**
+     * Returns the validator factory, and explains itself when there is none.
+     *
+     * @return the validator factory, never {@literal null}.
+     * @throws IllegalStateException when this validator was restored from a serialized session, which
+     *     does not carry a validator factory.
+     */
+    private ValidatorFactory validatorFactory() {
+        if (validatorFactory == null) {
+            throw new IllegalStateException("This validator has no ValidatorFactory because it was restored from a "
+                    + "serialized session, which does not carry one. Build the form again from a freshly injected "
+                    + "binder or from SpringBinderFactory instead of reusing a restored one.");
+        }
+        return validatorFactory;
     }
 
     /**
@@ -61,7 +83,7 @@ public class SpringBeanValidator extends BeanValidator {
      */
     @Override
     protected String getMessage(ConstraintViolation<?> violation, Locale locale) {
-        return validatorFactory
+        return validatorFactory()
                 .getMessageInterpolator()
                 .interpolate(violation.getMessageTemplate(), createContext(violation), locale);
     }

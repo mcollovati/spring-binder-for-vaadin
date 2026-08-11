@@ -27,35 +27,73 @@ import org.springframework.core.convert.support.DefaultConversionService;
 /**
  * Base class for {@link Binder} implementations integrated with Spring {@link ConversionService}.
  *
- * <h2>Not serializable</h2>
+ * <h2>Session serialization</h2>
  *
- * <p>Vaadin's {@link Binder} is serializable, but these binders hold a Spring {@link
- * ConversionService} — and the validating subclass a {@code ValidatorFactory} — which are not. A
- * binder therefore cannot be written to a serialized HTTP session, and trying throws {@link
- * java.io.NotSerializableException} naming the service or the factory.
+ * <p>A binder is serializable, and so is a form it has bound. What does <strong>not</strong> survive
+ * is the Spring wiring: the {@link ConversionService}, and the {@code ValidatorFactory} of the
+ * validating subclass, are {@code transient}, because neither is serializable.
  *
- * <p>That is deliberate. Marking the Spring collaborators {@code transient} would let the session be
- * written and then restore a binder with no conversion service, which fails later and further from
- * the cause. Nor can they be replaced by something that resolves them again after the session moves:
- * Spring's own serialization support for a bean factory resolves through a registry private to one
- * JVM, and falls back to an empty bean factory when the entry is missing, so a session restored in
- * another JVM would silently convert through the wrong service.
+ * <p>That is not a choice a view could make for itself. Vaadin's {@link Binder} registers a value
+ * change listener on every field it binds, and that listener holds the binder, so <em>each bound field
+ * reaches it</em>. Declaring the view's own binder field {@code transient} removes one reference out of
+ * many and does not keep the binder out of the session: as long as a bound field is in there, so is the
+ * binder. Either the binder tolerates being written, or no view using it can ever be in a serialized
+ * session.
  *
- * <p>Applications that rely on session serialization — a clustered deployment, or a container that
- * passivates sessions — must therefore keep a binder out of the serialized state:
+ * <p>The consequence is that a binder restored from a session can convert and validate nothing. It
+ * does not pretend otherwise — the first conversion fails with an {@link IllegalStateException} saying
+ * so, surfaced as an error on the field or thrown from {@code readBean} — but it also cannot repair
+ * itself. Resolving the beans again on the other side is not sound: Spring's serialization support for
+ * a bean factory resolves through a registry private to one JVM, and falls back to an empty bean
+ * factory when the entry is missing, so a session restored on another node would quietly convert
+ * through the wrong service and lose every {@code Converter} bean the application registered.
+ *
+ * <p>So an application whose sessions are serialized — a clustered deployment, or a container that
+ * passivates sessions — has to rebuild the form after a restore rather than reuse what came back:
  *
  * <pre>{@code
  * @Route("product")
  * public class ProductView extends VerticalLayout {
  *
- *     private final transient SpringBeanValidationBinder<Product> binder;
- *     ...
+ *     private final transient SpringBinderFactory binders;
+ *
+ *     public ProductView(SpringBinderFactory binders) {
+ *         this.binders = binders;
+ *         buildForm();
+ *     }
+ *
+ *     private void buildForm() {
+ *         SpringBeanValidationBinder<Product> binder = binders.createBeanValidation(Product.class);
+ *         ...
+ *     }
  * }
  * }</pre>
  *
- * <p>A {@code transient} field is {@literal null} after the session is restored, and its bindings are
- * gone with it, so the view has to build the form again — through {@link SpringBinderFactory} or a
- * fresh injection. There is no way to restore the bindings themselves.
+ * <p>{@link SpringBinderFactory} and {@link SpringBinderProvider} are the exception: they reach into
+ * the Spring context and are genuinely not serializable, so they do have to live in a {@code
+ * transient} field, or be taken as a constructor parameter and not kept at all.
+ *
+ * <h3>Session replication tooling</h3>
+ *
+ * <p>Tooling that replicates sessions can reconnect what plain deserialization cannot, from outside and
+ * with the real context. <a href="https://vaadin.com/docs/latest/tools/kubernetes/session-replication">
+ * Vaadin Kubernetes Kit</a> records which {@code transient} fields held Spring beans and re-injects them
+ * on deserialization, by reflection over the session's object graph. Two things follow.
+ *
+ * <p>A view's binder field is worth declaring {@code transient} after all: with the Kit it comes back
+ * as a freshly injected binder rather than {@literal null}, so the form can be rebuilt from the field.
+ *
+ * <p>And the fields of this add-on can be re-injected too, which repairs a restored binder outright,
+ * bindings included — but only if its package is among the classes the Kit inspects, which is normally
+ * narrowed to application classes:
+ *
+ * <pre>{@code
+ * vaadin.serialization.transients.include-packages=com.example.myapp,com.github.mcollovati.springbinder
+ * }</pre>
+ *
+ * <p>That works when the resolved {@link ConversionService} is a bean, as the MVC conversion service of
+ * a Spring Boot web application is. It cannot when the add-on had to build a service of its own, since
+ * there is then no bean to re-inject. Rebuilding the form is the option that always works.
  *
  * @param <BEAN> the type of the bean.
  *
@@ -64,8 +102,8 @@ import org.springframework.core.convert.support.DefaultConversionService;
 public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
 
     /**
-     * Deliberately not {@code transient}, so that serializing a binder fails at once instead of
-     * restoring one that cannot convert. See the class javadoc.
+     * Not {@code transient}: the factory itself is serializable, and it is reachable from every binding
+     * anyway. The conversion service inside it is the part that does not travel. See the class javadoc.
      */
     private final SpringConverterFactory converterFactory;
 

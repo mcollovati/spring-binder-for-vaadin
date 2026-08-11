@@ -44,9 +44,10 @@ package com.github.mcollovati.springbinder;
  * {@link SpringBinderFactory} when the component is not managed by Spring at all or needs binders for
  * more than one bean type.
  *
- * <p><strong>Not serializable.</strong> A provider reaches into the Spring context, so it cannot be
- * part of a serialized HTTP session. Hold it in a {@code transient} field of a Vaadin component. See
- * {@link AbstractSpringBinder} for why this cannot be worked around.
+ * <p><strong>Not serializable.</strong> A provider reaches into the Spring context, so unlike the
+ * binders it creates it cannot be part of a serialized HTTP session. Hold it in a {@code transient}
+ * field of a Vaadin component. See {@link AbstractSpringBinder} for what a restored session means for
+ * a form.
  *
  * @param <BEAN> the bean type the binders bind, taken from the injection point.
  * @see SpringBinderFactory

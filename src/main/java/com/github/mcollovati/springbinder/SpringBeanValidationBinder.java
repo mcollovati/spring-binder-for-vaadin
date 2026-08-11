@@ -44,7 +44,12 @@ import org.springframework.core.convert.ConversionService;
  */
 public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN> {
 
-    private final ValidatorFactory validatorFactory;
+    /**
+     * {@code transient} for the same reason as in {@link SpringConverterFactory}: the binder travels
+     * with a serialized session through the fields it bound, and a {@link ValidatorFactory} cannot.
+     */
+    private final transient @Nullable ValidatorFactory validatorFactory;
+
     private @Nullable RequiredFieldConfigurator requiredConfigurator = RequiredFieldConfigurator.DEFAULT;
 
     /**
