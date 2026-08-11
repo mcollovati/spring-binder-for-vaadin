@@ -17,8 +17,22 @@ Spring's `ValidatorFactory`.
 | | |
 |---|---|
 | Java | 21+ |
-| Vaadin | 25.2+ (built and tested against 25.2.5) |
+| Vaadin | 25.2+ (built and tested against 25.2.6) |
 | Spring Boot | 4.x |
+
+Java 21 applies to the JDK the application is built with, not only to the JVM it
+runs on. The add-on is compiled to Java 21 bytecode, so an older JDK cannot read
+it:
+
+```
+bad class file: .../spring-binder-for-vaadin-1.0.0.jar(/com/github/mcollovati/springbinder/SpringBinder.class)
+  class file has wrong version 65.0, should be 61.0
+```
+
+Spring Boot 4 itself only requires Java 17, so a project can be on Spring Boot 4
+and still be building with a JDK too old for this add-on. Targeting an earlier
+release from a JDK 21 toolchain — `maven.compiler.release` 17, say — does compile,
+but the JVM running the application still has to be 21 or later.
 
 ## Installation
 
@@ -53,6 +67,17 @@ public class RaceResultView extends VerticalLayout {
 }
 ```
 
+The bean type comes from the generic parameter of the injection point, so nothing
+passes it explicitly. `getBeanType()` reads it back, which is the way to assert an
+injected binder really was built for the type the view expects:
+
+```java
+assertThat(binder.getBeanType()).contains(RaceResult.class);
+```
+
+It is empty only for a binder created from a `PropertySet`, where there is no bean
+type to report.
+
 `duration` is a `TextField`, while `RaceResult.duration` is a custom `Duration`
 type. `bindInstanceFields()` would normally fail on that mismatch; with this
 add-on the conversion is taken from Spring:
@@ -85,13 +110,21 @@ Converter<String, LocalDate> stringToLocalDate() {
 
 ### Bean validation
 
-With `spring-boot-starter-validation` on the classpath (that is: with a
-`ValidatorFactory` bean available), inject `SpringBeanValidationBinder` to get
-JSR-303 constraints applied automatically, including the required indicator:
+With a JSR-303 provider on the classpath — Hibernate Validator already arrives
+transitively with `vaadin-spring`, so usually there is nothing to add — inject
+`SpringBeanValidationBinder` to get JSR-303 constraints applied automatically,
+including the required indicator:
 
 ```java
 public RaceResultView(SpringBeanValidationBinder<RaceResult> binder) { ... }
 ```
+
+Validation runs through the application's `ValidatorFactory` bean when there is
+one, which is what `spring-boot-starter-validation` registers. Without that
+starter the add-on builds a factory of its own, backed by the application
+context so that constraint validators can still be Spring beans. Either way the
+binder validates like Vaadin's own `BeanValidationBinder`, and adopting the
+add-on does not force a new starter on the application.
 
 Constraint messages are interpolated by the `ValidatorFactory`'s
 `MessageInterpolator` using the locale of the current Vaadin UI, so
@@ -107,9 +140,101 @@ To resolve messages from a Spring `MessageSource` instead, expose a
 `setValidationMessageSource(messageSource)`.
 
 Injecting the base `Binder<T>` also works: it resolves to
-`SpringBeanValidationBinder` when a `ValidatorFactory` bean exists and to
+`SpringBeanValidationBinder` when a JSR-303 provider is available and to
 `SpringBinder` otherwise. Inject a concrete type when you want to be explicit
 about which one you get.
+
+## More than one binder, or a component Spring does not manage
+
+An injected binder is one binder. That is the wrong shape in two common cases:
+a component that builds a form per row of a grid, and a form component created
+with `new`, which Spring never sees.
+
+Do **not** reuse a single injected binder for several rows. Vaadin's `Binder`
+lets the same property be bound more than once, so it compiles, starts, and then
+silently has every row read and write the same bean.
+
+When the bean type is known at the injection point, inject a
+`SpringBinderProvider<T>` and ask it for one binder per form:
+
+```java
+@Route("admin")
+public class AdminView extends VerticalLayout {
+
+    private final SpringBinderProvider<Category> binders;
+
+    public AdminView(SpringBinderProvider<Category> binders) {
+        this.binders = binders;
+    }
+
+    private Component createCategoryEditor(Category category) {
+        SpringBeanValidationBinder<Category> binder = binders.getBeanValidation();
+        ...
+    }
+}
+```
+
+When the component is not a Spring bean, or needs binders for several bean
+types, inject the `SpringBinderFactory` singleton and pass it down:
+
+```java
+class OrderItemsEditor {
+
+    private final SpringBinderFactory binders;
+
+    OrderItemsEditor(SpringBinderFactory binders) {
+        this.binders = binders;
+    }
+
+    private OrderItemEditor createEditor() {
+        return new OrderItemEditor(binders.createBeanValidation(OrderItem.class));
+    }
+}
+```
+
+Both create binders wired exactly like injected ones — same `ConversionService`,
+same conversion order, same `ValidatorFactory` — so the factory is also the way
+to build binders in tests, instead of calling a constructor and getting
+different conversion behaviour than production.
+
+## Session serialization
+
+**The binders, `SpringBinderFactory` and `SpringBinderProvider` are not
+serializable.** Keep them out of a Vaadin component's serialized state by marking
+the field `transient`:
+
+```java
+@Route("product")
+public class ProductView extends VerticalLayout {
+
+    private final transient SpringBeanValidationBinder<Product> binder;
+
+    public ProductView(SpringBeanValidationBinder<Product> binder) {
+        this.binder = binder;
+        ...
+    }
+}
+```
+
+This only matters if the session is ever serialized — a clustered deployment, or a
+container that passivates sessions to disk. Vaadin's own `Binder` is serializable,
+but these binders hold a Spring `ConversionService`, and the validating one a
+`ValidatorFactory`, neither of which is. Writing a session that reaches one fails
+with a `NotSerializableException` naming the service or the factory.
+
+That failure is deliberate, and it is the reason the add-on does not simply mark
+those fields `transient` itself. Doing so would let the session be written and then
+restore a binder with no conversion service, failing later and far from the cause.
+Resolving the beans again on the other side is not sound either: Spring's
+serialization support for a bean factory resolves through a registry private to a
+single JVM and **falls back to an empty bean factory** when the entry is missing, so
+a session restored on another node would quietly convert through the wrong service
+and lose every `Converter` bean the application registered.
+
+A `transient` binder is `null` after the session is restored, and its bindings are
+gone with it, so the view has to build its form again — from a fresh injection or
+through `SpringBinderFactory`. There is no way to bring the bindings back; a form
+whose state must survive passivation has to be rebuilt from the bean.
 
 ## Conversion precedence
 

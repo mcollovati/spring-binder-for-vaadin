@@ -41,7 +41,13 @@ public class SpringConverterFactory implements ConverterFactory {
             float.class, Float.class,
             double.class, Double.class);
 
-    private final transient ConversionService service;
+    /**
+     * Deliberately not {@code transient}. A {@link ConversionService} is generally not serializable,
+     * and skipping it would produce a factory that deserializes into one unable to convert anything.
+     * Keeping it in the serialized form means the attempt fails immediately, naming the service.
+     */
+    private final ConversionService service;
+
     private final ConverterFactory fallback;
     private final ConversionOrder order;
 

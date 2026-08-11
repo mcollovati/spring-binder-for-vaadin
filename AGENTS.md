@@ -59,6 +59,8 @@ src/main/java/com/github/mcollovati/springbinder/
 ├── SpringConverterFactory.java  # Bridge between Spring and Vaadin converters
 ├── ConversionOrder.java         # Whether Vaadin or Spring provides the converter
 ├── BinderConversionService.java # Qualifier for a ConversionService used only by the binders
+├── SpringBinderFactory.java     # Creates binders outside an injection point
+├── SpringBinderProvider.java    # Typed binder provider for one bean type
 ├── SpringBinderProperties.java  # `vaadin-spring-binder.*` configuration
 └── SpringBinderConfiguration.java # Spring Boot auto-configuration
 

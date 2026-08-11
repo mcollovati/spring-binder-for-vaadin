@@ -15,6 +15,8 @@
  */
 package com.github.mcollovati.springbinder;
 
+import java.util.Optional;
+
 import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.converter.ConverterFactory;
@@ -24,11 +26,47 @@ import org.springframework.core.convert.support.DefaultConversionService;
 /**
  * Base class for {@link Binder} implementations integrated with Spring {@link ConversionService}.
  *
+ * <h2>Not serializable</h2>
+ *
+ * <p>Vaadin's {@link Binder} is serializable, but these binders hold a Spring {@link
+ * ConversionService} — and the validating subclass a {@code ValidatorFactory} — which are not. A
+ * binder therefore cannot be written to a serialized HTTP session, and trying throws {@link
+ * java.io.NotSerializableException} naming the service or the factory.
+ *
+ * <p>That is deliberate. Marking the Spring collaborators {@code transient} would let the session be
+ * written and then restore a binder with no conversion service, which fails later and further from
+ * the cause. Nor can they be replaced by something that resolves them again after the session moves:
+ * Spring's own serialization support for a bean factory resolves through a registry private to one
+ * JVM, and falls back to an empty bean factory when the entry is missing, so a session restored in
+ * another JVM would silently convert through the wrong service.
+ *
+ * <p>Applications that rely on session serialization — a clustered deployment, or a container that
+ * passivates sessions — must therefore keep a binder out of the serialized state:
+ *
+ * <pre>{@code
+ * @Route("product")
+ * public class ProductView extends VerticalLayout {
+ *
+ *     private final transient SpringBeanValidationBinder<Product> binder;
+ *     ...
+ * }
+ * }</pre>
+ *
+ * <p>A {@code transient} field is {@literal null} after the session is restored, and its bindings are
+ * gone with it, so the view has to build the form again — through {@link SpringBinderFactory} or a
+ * fresh injection. There is no way to restore the bindings themselves.
+ *
  * @param <BEAN> the type of the bean.
  */
 public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
 
-    private final transient SpringConverterFactory converterFactory;
+    /**
+     * Deliberately not {@code transient}, so that serializing a binder fails at once instead of
+     * restoring one that cannot convert. See the class javadoc.
+     */
+    private final SpringConverterFactory converterFactory;
+
+    private final Class<BEAN> beanType;
 
     /**
      * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
@@ -52,6 +90,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
     protected AbstractSpringBinder(
             Class<BEAN> beanType, ConversionService conversionService, ConversionOrder conversionOrder) {
         super(beanType);
+        this.beanType = beanType;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
@@ -83,6 +122,7 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
             ConversionService conversionService,
             ConversionOrder conversionOrder) {
         super(beanType, scanNestedDefinitions);
+        this.beanType = beanType;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
@@ -97,12 +137,27 @@ public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
     protected AbstractSpringBinder(
             PropertySet<BEAN> propertySet, ConversionService conversionService, ConversionOrder conversionOrder) {
         super(propertySet);
+        this.beanType = null;
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
     private SpringConverterFactory createConverterFactory(
             ConversionService conversionService, ConversionOrder conversionOrder) {
         return new SpringConverterFactory(conversionService, super.getConverterFactory(), conversionOrder);
+    }
+
+    /**
+     * Returns the bean type this binder binds.
+     *
+     * <p>Useful to assert that an injected binder was built for the expected type, since the
+     * auto-configuration resolves it from the generic parameter of the injection point rather than
+     * from an argument the caller passes.
+     *
+     * @return the bean type, or an empty optional when the binder was created from a {@link
+     *     PropertySet} and no bean type is known.
+     */
+    public Optional<Class<BEAN>> getBeanType() {
+        return Optional.ofNullable(beanType);
     }
 
     /**

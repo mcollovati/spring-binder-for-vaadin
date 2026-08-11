@@ -23,6 +23,7 @@ import com.vaadin.flow.data.binder.ValueContext;
 import com.vaadin.flow.data.converter.StringToDateConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -33,6 +34,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.convert.support.GenericConversionService;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.format.support.DefaultFormattingConversionService;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
@@ -87,12 +89,87 @@ class SpringBinderAutoConfigurationTest {
                 });
     }
 
+    /**
+     * Hibernate Validator reaches most applications transitively through {@code vaadin-spring}, but a
+     * {@link ValidatorFactory} bean only exists with {@code spring-boot-starter-validation}. Vaadin's
+     * own {@code BeanValidationBinder} validates fine in that setup, so the add-on must too instead of
+     * quietly omitting the binder and failing when a view is instantiated.
+     */
     @Test
-    void noValidatorFactory_baseBinderTypeResolvesToPlainBinder() {
+    void noValidatorFactoryBean_validationProviderOnClasspath_validationBinderIsAvailable() {
         contextRunner
                 .withBean(BaseBinderConsumer.class)
-                .run(context -> assertThat(context.getBean(BaseBinderConsumer.class).binder)
-                        .isExactlyInstanceOf(SpringBinder.class));
+                .withBean(ConcreteBindersConsumer.class)
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(ValidatorFactory.class);
+                    assertThat(context).hasSingleBean(BinderValidatorFactory.class);
+                    assertThat(context.getBean(BaseBinderConsumer.class).binder)
+                            .isInstanceOf(SpringBeanValidationBinder.class);
+                    assertThat(context.getBean(ConcreteBindersConsumer.class).validationBinder)
+                            .isExactlyInstanceOf(SpringBeanValidationBinder.class);
+                });
+    }
+
+    /** Without a JSR-303 provider nothing can be validated, so only the plain binder is registered. */
+    @Test
+    void noValidationProvider_baseBinderTypeResolvesToPlainBinder() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader(
+                        new ClassPathResource("META-INF/services/jakarta.validation.spi.ValidationProvider")))
+                .withBean(BaseBinderConsumer.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(BinderValidatorFactory.class);
+                    assertThat(context.getBean(BaseBinderConsumer.class).binder)
+                            .isExactlyInstanceOf(SpringBinder.class);
+                });
+    }
+
+    /** The application's own validator factory must win over the one the add-on falls back to. */
+    @Test
+    void validatorFactoryPresent_applicationFactoryIsUsed() {
+        contextRunner.withUserConfiguration(WithValidation.class).run(context -> {
+            ValidatorFactory applicationFactory = context.getBean(ValidatorFactory.class);
+            assertThat(context.getBean(BinderValidatorFactory.class).get()).isSameAs(applicationFactory);
+        });
+    }
+
+    /** Contributes a validator factory only after the binders have been configured. */
+    @AutoConfiguration(after = SpringBinderConfiguration.class)
+    static class LateValidationAutoConfiguration {
+        @Bean
+        LocalValidatorFactoryBean lateValidatorFactory() {
+            return new LocalValidatorFactoryBean();
+        }
+    }
+
+    /**
+     * A validator factory registered by an auto-configuration ordered after this one — {@code
+     * mvcValidator} is the usual case — is invisible while conditions are evaluated. Binders are
+     * prototypes, so resolving the factory when a binder is created picks it up regardless of order.
+     */
+    @Test
+    void validatorFactoryRegisteredLate_isStillUsed() {
+        new ApplicationContextRunner()
+                .withConfiguration(
+                        AutoConfigurations.of(SpringBinderConfiguration.class, LateValidationAutoConfiguration.class))
+                .withBean(BaseBinderConsumer.class)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(BaseBinderConsumer.class).binder)
+                            .isInstanceOf(SpringBeanValidationBinder.class);
+                    assertThat(context.getBean(BinderValidatorFactory.class).get())
+                            .isSameAs(context.getBean(ValidatorFactory.class));
+                });
+    }
+
+    /** The fallback factory is owned by the add-on, so it must be built once and then reused. */
+    @Test
+    void noValidatorFactoryBean_fallbackFactoryIsCreatedOnce() {
+        contextRunner.run(context -> {
+            BinderValidatorFactory factory = context.getBean(BinderValidatorFactory.class);
+            assertThat(factory.get()).isSameAs(factory.get());
+        });
     }
 
     /** The validation binder must not be required for the auto-configuration to load. */
