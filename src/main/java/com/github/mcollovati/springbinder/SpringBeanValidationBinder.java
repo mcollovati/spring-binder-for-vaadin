@@ -23,6 +23,7 @@ import jakarta.validation.metadata.PropertyDescriptor;
 import com.vaadin.flow.component.HasValue;
 import com.vaadin.flow.data.binder.BeanPropertySet;
 import com.vaadin.flow.data.binder.PropertyDefinition;
+import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.binder.RequiredFieldConfigurator;
 import com.vaadin.flow.data.validator.BeanValidator;
 import org.springframework.core.convert.ConversionService;
@@ -43,6 +44,17 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
     private final Class<BEAN> beanType;
     private final ValidatorFactory validatorFactory;
     private RequiredFieldConfigurator requiredConfigurator = RequiredFieldConfigurator.DEFAULT;
+
+    /**
+     * Creates a new binder for the given bean or record type, using the shared {@link
+     * org.springframework.core.convert.support.DefaultConversionService}.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
+     */
+    public SpringBeanValidationBinder(Class<BEAN> beanType, ValidatorFactory validatorFactory) {
+        this(beanType, sharedConversionService(), validatorFactory);
+    }
 
     /**
      * Creates a new binder for the given bean or record type, using the {@link ConversionService} to
@@ -119,6 +131,40 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
     }
 
     /**
+     * Creates a new binder using the given property set.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    protected SpringBeanValidationBinder(
+            PropertySet<BEAN> propertySet,
+            ConversionService conversionService,
+            ValidatorFactory validatorFactory,
+            ConversionOrder conversionOrder) {
+        super(propertySet, conversionService, conversionOrder);
+        this.beanType = null;
+        this.validatorFactory = validatorFactory;
+    }
+
+    /**
+     * Creates a new binder using the given property set, for parity with {@link
+     * com.vaadin.flow.data.binder.Binder#withPropertySet(PropertySet)}.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param validatorFactory the factory providing the bean validator and the message interpolator.
+     * @param <BEAN> the bean type.
+     * @return a new binder using the given property set, never {@literal null}.
+     */
+    public static <BEAN> SpringBeanValidationBinder<BEAN> withPropertySet(
+            PropertySet<BEAN> propertySet, ConversionService conversionService, ValidatorFactory validatorFactory) {
+        return new SpringBeanValidationBinder<>(
+                propertySet, conversionService, validatorFactory, ConversionOrder.VAADIN_FIRST);
+    }
+
+    /**
      * Sets a logic which allows to configure require indicator via {@link
      * HasValue#setRequiredIndicatorVisible(boolean)} based on property descriptor.
      *
@@ -166,9 +212,12 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
             return ((BeanPropertySet.NestedBeanPropertyDefinition) definition)
                     .getParent()
                     .getType();
+        } else if (beanType != null) {
+            // Non nested properties must be defined in the main type
+            return beanType;
         }
-        // Non nested properties must be defined in the main type
-        return beanType;
+        // Binder created from a property set, so the bean type is not known upfront
+        return definition.getPropertyHolderType();
     }
 
     private void configureRequired(

@@ -44,6 +44,7 @@ public class SpringBeanValidator extends BeanValidator {
         this.validatorFactory = validatorFactory;
     }
 
+    @Override
     public jakarta.validation.Validator getJavaxBeanValidator() {
         return validatorFactory.getValidator();
     }
@@ -56,6 +57,7 @@ public class SpringBeanValidator extends BeanValidator {
      * @param locale the used locale
      * @return the localized error message
      */
+    @Override
     protected String getMessage(ConstraintViolation<?> violation, Locale locale) {
         return validatorFactory
                 .getMessageInterpolator()

@@ -15,6 +15,8 @@
  */
 package com.github.mcollovati.springbinder;
 
+import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.PropertySet;
 import org.springframework.core.convert.ConversionService;
 
 /**
@@ -27,6 +29,16 @@ import org.springframework.core.convert.ConversionService;
  * @param <BEAN> the type of the bean.
  */
 public class SpringBinder<BEAN> extends AbstractSpringBinder<BEAN> {
+
+    /**
+     * Creates a new binder for the given bean or record type, using the shared
+     * {@link org.springframework.core.convert.support.DefaultConversionService}.
+     *
+     * @param beanType the bean type to use, not {@literal null}.
+     */
+    public SpringBinder(Class<BEAN> beanType) {
+        this(beanType, sharedConversionService());
+    }
 
     /**
      * Creates a new binder for the given bean or record type, using the {@link ConversionService}
@@ -82,5 +94,46 @@ public class SpringBinder<BEAN> extends AbstractSpringBinder<BEAN> {
             ConversionService conversionService,
             ConversionOrder conversionOrder) {
         super(beanType, scanNestedDefinitions, conversionService, conversionOrder);
+    }
+
+    /**
+     * Creates a new binder using the given property set.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    protected SpringBinder(
+            PropertySet<BEAN> propertySet, ConversionService conversionService, ConversionOrder conversionOrder) {
+        super(propertySet, conversionService, conversionOrder);
+    }
+
+    /**
+     * Creates a new binder using the given property set, for parity with
+     * {@link Binder#withPropertySet(PropertySet)}.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param <BEAN> the bean type.
+     * @return a new binder using the given property set, never {@literal null}.
+     */
+    public static <BEAN> SpringBinder<BEAN> withPropertySet(
+            PropertySet<BEAN> propertySet, ConversionService conversionService) {
+        return withPropertySet(propertySet, conversionService, ConversionOrder.VAADIN_FIRST);
+    }
+
+    /**
+     * Creates a new binder using the given property set, for parity with
+     * {@link Binder#withPropertySet(PropertySet)}.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     * @param <BEAN> the bean type.
+     * @return a new binder using the given property set, never {@literal null}.
+     */
+    public static <BEAN> SpringBinder<BEAN> withPropertySet(
+            PropertySet<BEAN> propertySet, ConversionService conversionService, ConversionOrder conversionOrder) {
+        return new SpringBinder<>(propertySet, conversionService, conversionOrder);
     }
 }

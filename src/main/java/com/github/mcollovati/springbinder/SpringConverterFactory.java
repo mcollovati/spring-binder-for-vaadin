@@ -29,7 +29,7 @@ import org.springframework.core.convert.ConversionService;
  * <p>Which of the two is asked first is defined by {@link ConversionOrder}; whichever is asked
  * second is used for the conversions the first one cannot provide.
  */
-class SpringConverterFactory implements ConverterFactory {
+public class SpringConverterFactory implements ConverterFactory {
 
     private static final Map<Class<?>, Class<?>> WRAPPER_TYPES = Map.of(
             boolean.class, Boolean.class,

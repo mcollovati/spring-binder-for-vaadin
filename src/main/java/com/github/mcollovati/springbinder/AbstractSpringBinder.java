@@ -16,15 +16,17 @@
 package com.github.mcollovati.springbinder;
 
 import com.vaadin.flow.data.binder.Binder;
+import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.converter.ConverterFactory;
 import org.springframework.core.convert.ConversionService;
+import org.springframework.core.convert.support.DefaultConversionService;
 
 /**
  * Base class for {@link Binder} implementations integrated with Spring {@link ConversionService}.
  *
  * @param <BEAN> the type of the bean.
  */
-abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
+public abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
 
     private final transient SpringConverterFactory converterFactory;
 
@@ -84,9 +86,33 @@ abstract class AbstractSpringBinder<BEAN> extends Binder<BEAN> {
         this.converterFactory = createConverterFactory(conversionService, conversionOrder);
     }
 
+    /**
+     * Creates a new binder using the given property set, for parity with {@link
+     * Binder#withPropertySet(PropertySet)}.
+     *
+     * @param propertySet the property set implementation to use, not {@literal null}.
+     * @param conversionService the conversion service.
+     * @param conversionOrder whether Vaadin or Spring provides the converter when both can.
+     */
+    protected AbstractSpringBinder(
+            PropertySet<BEAN> propertySet, ConversionService conversionService, ConversionOrder conversionOrder) {
+        super(propertySet);
+        this.converterFactory = createConverterFactory(conversionService, conversionOrder);
+    }
+
     private SpringConverterFactory createConverterFactory(
             ConversionService conversionService, ConversionOrder conversionOrder) {
         return new SpringConverterFactory(conversionService, super.getConverterFactory(), conversionOrder);
+    }
+
+    /**
+     * Returns the shared {@link DefaultConversionService}, used by the constructors that do not take
+     * a conversion service.
+     *
+     * @return the shared conversion service, never {@literal null}.
+     */
+    protected static ConversionService sharedConversionService() {
+        return DefaultConversionService.getSharedInstance();
     }
 
     @Override
