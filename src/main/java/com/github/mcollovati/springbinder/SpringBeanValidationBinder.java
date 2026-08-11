@@ -26,6 +26,7 @@ import com.vaadin.flow.data.binder.PropertyDefinition;
 import com.vaadin.flow.data.binder.PropertySet;
 import com.vaadin.flow.data.binder.RequiredFieldConfigurator;
 import com.vaadin.flow.data.validator.BeanValidator;
+import org.jspecify.annotations.Nullable;
 import org.springframework.core.convert.ConversionService;
 
 /**
@@ -38,11 +39,13 @@ import org.springframework.core.convert.ConversionService;
  * validation.
  *
  * @param <BEAN> the type of the bean.
+ *
+ * @since 1.0
  */
 public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN> {
 
     private final ValidatorFactory validatorFactory;
-    private RequiredFieldConfigurator requiredConfigurator = RequiredFieldConfigurator.DEFAULT;
+    private @Nullable RequiredFieldConfigurator requiredConfigurator = RequiredFieldConfigurator.DEFAULT;
 
     /**
      * Creates a new binder for the given bean or record type, using the shared {@link
@@ -168,7 +171,7 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
      *
      * @param configurator required indicator configurator, may be {@code null}
      */
-    public void setRequiredConfigurator(RequiredFieldConfigurator configurator) {
+    public void setRequiredConfigurator(@Nullable RequiredFieldConfigurator configurator) {
         requiredConfigurator = configurator;
     }
 
@@ -178,7 +181,7 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
      * @see #setRequiredConfigurator(RequiredFieldConfigurator)
      * @return required indicator configurator, may be {@code null}
      */
-    public RequiredFieldConfigurator getRequiredConfigurator() {
+    public @Nullable RequiredFieldConfigurator getRequiredConfigurator() {
         return requiredConfigurator;
     }
 

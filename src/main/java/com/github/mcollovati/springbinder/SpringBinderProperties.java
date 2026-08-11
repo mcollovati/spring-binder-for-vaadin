@@ -21,6 +21,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Configuration for the injected binders.
  *
  * @see ConversionOrder
+ *
+ * @since 1.0
  */
 @ConfigurationProperties(SpringBinderProperties.PREFIX)
 public class SpringBinderProperties {

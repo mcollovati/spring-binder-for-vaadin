@@ -54,6 +54,8 @@ import org.springframework.core.convert.ConversionService;
  * the context at startup. When no bean carries it the binders use the application's {@link
  * ConversionService}, and when that one is ambiguous or missing, a conversion service built by the
  * add-on from the application's {@code Converter} and {@code Formatter} beans.
+ *
+ * @since 1.0
  */
 @Qualifier @Documented
 @Retention(RetentionPolicy.RUNTIME)
