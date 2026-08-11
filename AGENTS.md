@@ -5,69 +5,71 @@ This document provides guidelines for agentic coding assistants working in this 
 ## Project Overview
 
 - **Java Version**: 21
-- **Vaadin Version**: 25.1.0
+- **Vaadin Version**: 25.2.5 (25.2+ is required by the browserless UI tests)
 - **Spring Boot Version**: 4.0.4
-- **Package**: `io.github.mcollovati.springbinder`
+- **Coordinates**: `com.github.mcollovati:spring-binder-for-vaadin`
+- **Package**: `com.github.mcollovati.springbinder`
+
+This is a library, not an application: there is nothing to run, and the UI tests
+drive Vaadin in process.
 
 ## Build Commands
 
 ### Basic Build
 ```bash
-mvn install                    # Build and install to local repo (skip tests)
-mvn clean install              # Clean build and install
-```
-
-### Running the Application
-```bash
-mvn spring-boot:run           # Start development server at http://localhost:8080
+mvn clean verify              # Compile, run all tests, check formatting
+mvn clean install             # The above, plus install to the local repository
+mvn install -DskipTests       # Skip tests
 ```
 
 ### Testing
 ```bash
-mvn test                      # Run unit tests only
-mvn verify                    # Run unit tests + integration tests
+mvn test                      # Unit and UI tests (all run under surefire)
 
-# Run a specific test class
+# Run a specific test class or method
 mvn test -Dtest=SpringBinderTest
 mvn test -Dtest=SpringBinderTest#converterExists_applyConverterFromConversionService
 
-# Run integration tests only (Spring Boot auto-starts)
-mvn verify -Pit
-
-# Skip tests
-mvn install -DskipTests
+# Validation messages and date formats depend on the locale: keep this green too
+mvn test -DargLine="-Duser.language=it -Duser.country=IT"
 ```
 
 ### Packaging
 ```bash
-mvn install -Pdirectory       # Package for Vaadin Directory (creates target/spring-binder-{version}.zip)
+mvn install -Prelease        # Also build the sources and javadoc jars needed by Maven Central
 ```
+
+Releases go to Maven Central; the Vaadin Directory picks new versions up from
+there, so no zip is built.
 
 ### Code Formatting
 ```bash
-mvn spotless:apply           # Format code using Google Java Format
-mvn spotless:check           # Verify formatting (fails if not formatted)
+mvn spotless:apply           # Format code using palantir-java-format
+mvn spotless:check           # Verify formatting; also runs as part of `mvn verify`
 ```
 
 ## Project Structure
 
 ```
-src/main/java/io/github/mcollovati/springbinder/
-├── AbstractSpringBinder.java    # Abstract base class (package-private)
+src/main/java/com/github/mcollovati/springbinder/
+├── AbstractSpringBinder.java    # Public abstract base class
 ├── SpringBinder.java           # Main Binder with Spring ConversionService
 ├── SpringBeanValidationBinder.java  # Binder with JSR-303 validation
 ├── SpringBeanValidator.java     # Custom validator with localized messages
 ├── SpringConverterFactory.java  # Bridge between Spring and Vaadin converters
-├── SpringBinderConfiguration.java # Spring Boot auto-configuration
-└── it/TestServer.java          # Spring Boot application for testing (main sources)
+├── ConversionOrder.java         # Whether Vaadin or Spring provides the converter
+├── BinderConversionService.java # Qualifier for a ConversionService used only by the binders
+├── SpringBinderProperties.java  # `vaadin-spring-binder.*` configuration
+└── SpringBinderConfiguration.java # Spring Boot auto-configuration
 
 src/main/resources/META-INF/
 ├── spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports  # Auto-config registration
 └── resources/frontend/          # Frontend static resources
 
-src/test/java/io/github/mcollovati/springbinder/
-├── *.java                       # Unit tests (JUnit 5 + AssertJ + Mockito)
-├── it/                          # Integration tests (Playwright + @SpringBootTest)
+src/test/java/com/github/mcollovati/springbinder/
+├── *.java                       # Unit tests (JUnit 6 + AssertJ + Mockito)
+├── it/                          # UI tests (Vaadin Browserless Test + @SpringBootTest)
+├── data/                        # Test beans and records
 └── fields/                      # Test helper components
 ```
 
@@ -78,7 +80,7 @@ src/test/java/io/github/mcollovati/springbinder/
 - **Indentation**: 4 spaces (standard Java convention)
 - **Line Length**: No hard limit, but prefer readability
 - **Braces**: K&R style (opening brace on same line)
-- **Package Names**: `io.github.mcollovati.springbinder`
+- **Package Names**: `com.github.mcollovati.springbinder`
 - **Class Names**: PascalCase (e.g., `SpringBinder`, `AbstractSpringBinder`)
 - **Method Names**: camelCase (e.g., `createBinder`, `setRequiredConfigurator`)
 - **Constant Names**: UPPER_SNAKE_CASE
@@ -86,7 +88,8 @@ src/test/java/io/github/mcollovati/springbinder/
 
 ### Imports
 
-- **Group order**: java.*, javax.*, org.springframework.*, com.vaadin.*, third-party, project
+- **Group order** (enforced by spotless): `jakarta.*`/`java.*`/`javax.*`, then everything
+  else, then `com.github.mcollovati.*`, then static imports in the same order
 - **Blank line between major groups**
 - **No wildcard imports** unless the file uses >10 types from the same package
 - **Static imports** for test assertions: `import static org.assertj.core.api.Assertions.assertThat;`
@@ -135,7 +138,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 assertThat(result.getDate()).isEqualToIgnoringMillis(newDate);
 ```
 - **Mockito**: Use `mock()` for creating mocks, `when()` for stubbing
-- **Integration tests** (IT suffix): Use Playwright for browser automation
+- **UI tests**: Use Vaadin Browserless Test (`SpringBrowserlessTest`), which runs the
+  Vaadin session in process. Locate components with `findInView(...)`, not the
+  deprecated `$view(...)`. They are named `*Test` and run with the unit tests.
 
 ### Annotations
 
@@ -148,9 +153,12 @@ assertThat(result.getDate()).isEqualToIgnoringMillis(newDate);
 
 ### Access Modifiers
 
-- **Public**: API classes (`SpringBinder`, `SpringBeanValidationBinder`)
-- **Protected**: Methods designed for subclass override
-- **Package-private (default)**: Internal implementation classes (`AbstractSpringBinder`, `SpringConverterFactory`)
+- **Public**: everything users are meant to touch, which includes the binders,
+  `AbstractSpringBinder` (to subclass) and `SpringConverterFactory` (to reuse the
+  bridge to Spring converters on its own)
+- **Protected**: Methods designed for subclass override, and the constructors taking
+  a `PropertySet`
+- **Package-private (default)**: the `@Bean` methods of the auto-configuration
 - **Private**: Implementation details within classes
 
 ### Records and Classes
@@ -174,8 +182,14 @@ assertThat(result.getDate()).isEqualToIgnoringMillis(newDate);
 
 ## Git Commit Messages
 
-Format: `type: subject` where type is `fix:`, `feat:`, `chore:`, or `refactor:`
+Format: `type: subject` where type is `feat:`, `fix:`, `refactor:`, `test:`,
+`docs:`, `chore:` or `build:`
 
-- Wrap references like `@Component`, `@Injectable` in backticks
-- Subject: 50 chars or less
-- End with issue reference: `Fixes #1234`
+- Subject: 50 chars or less, no trailing period
+- Body: one sentence on the actual problem being fixed, when there is one, then a
+  few sentences on what the change does. Plain language, no jargon and no technical
+  detail unless it genuinely matters
+- **Never** add a `Co-Authored-By` trailer
+- Author is `Marco Collovati <mcollovati@gmail.com>`
+- Prefer several small focused commits over one large one
+- End with an issue reference when there is one: `Fixes #1234`
