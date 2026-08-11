@@ -105,6 +105,14 @@ jobs:
           unzip -p "$jar" META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports \
             | grep -qx 'com.github.mcollovati.springbinder.SpringBinderConfiguration' \
             || { echo "🚫 the auto configuration is not registered under its current name"; exit 1; }
+          # Frozen at the first release: consumers compile against this module name
+          unzip -p "$jar" META-INF/MANIFEST.MF | tr -d '\r' \
+            | grep -qx 'Automatic-Module-Name: com.github.mcollovati.springbinder' \
+            || { echo "🚫 the automatic module name is missing or changed"; exit 1; }
+          # The single configuration property must keep its documented name and reach IDEs
+          unzip -p "$jar" META-INF/spring-configuration-metadata.json \
+            | grep -q '"springbinder.conversion.order"' \
+            || { echo "🚫 configuration metadata is missing or the property was renamed"; exit 1; }
 
   # Single check to require in the branch protection rule: it stays correct when jobs
   # are renamed, added or removed, which a list of job names would not
