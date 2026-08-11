@@ -46,16 +46,16 @@ class SpringBinderViewTest extends SpringBrowserlessTest {
         navigate(SpringBinderView.class);
 
         LocalDate raceDate = LocalDate.of(2026, 8, 11);
-        test($view(DatePicker.class).withLabel("Date").single()).setValue(raceDate);
-        test($view(TextField.class).withLabel("Team").single()).setValue("TEAM1");
-        test($view(IntegerField.class).withLabel("Place").single()).setValue(3);
-        test($view(TextField.class).withLabel("Duration").single()).setValue("120M");
+        test(findInView(DatePicker.class).withLabel("Date").single()).setValue(raceDate);
+        test(findInView(TextField.class).withLabel("Team").single()).setValue("TEAM1");
+        test(findInView(IntegerField.class).withLabel("Place").single()).setValue(3);
+        test(findInView(TextField.class).withLabel("Duration").single()).setValue("120M");
 
-        test($view(Button.class).withId(SpringBinderView.SAVE_ID).single()).click();
+        test(findInView(Button.class).withId(SpringBinderView.SAVE_ID).single()).click();
 
         Date expectedDate =
                 Date.from(raceDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        assertThat($view(Div.class).id(SpringBinderView.LOG_ID).getText())
+        assertThat(findInView(Div.class).id(SpringBinderView.LOG_ID).getText())
                 .isEqualTo("RaceResult[date=" + expectedDate + ", team=TEAM1, place=3, duration=120M]");
     }
 
@@ -63,11 +63,11 @@ class SpringBinderViewTest extends SpringBrowserlessTest {
     void injectedBinder_springConversionFails_beanNotWritten() {
         navigate(SpringBinderView.class);
 
-        test($view(TextField.class).withLabel("Team").single()).setValue("TEAM1");
-        test($view(TextField.class).withLabel("Duration").single()).setValue("not-a-duration");
+        test(findInView(TextField.class).withLabel("Team").single()).setValue("TEAM1");
+        test(findInView(TextField.class).withLabel("Duration").single()).setValue("not-a-duration");
 
-        test($view(Button.class).withId(SpringBinderView.SAVE_ID).single()).click();
+        test(findInView(Button.class).withId(SpringBinderView.SAVE_ID).single()).click();
 
-        assertThat($view(Div.class).id(SpringBinderView.LOG_ID).getText()).isEmpty();
+        assertThat(findInView(Div.class).id(SpringBinderView.LOG_ID).getText()).isEmpty();
     }
 }
