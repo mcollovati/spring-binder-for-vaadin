@@ -27,12 +27,20 @@ import com.vaadin.flow.router.Route;
 import com.github.mcollovati.springbinder.SpringBinder;
 import com.github.mcollovati.springbinder.data.RaceResult;
 
+/**
+ * View exercising an injected {@link SpringBinder} end to end: Spring provided converters are
+ * applied by {@link Binder#bindInstanceFields(Object)} and the bean written on save is echoed into a
+ * log element.
+ */
 @Route("")
 public class SpringBinderView extends VerticalLayout {
 
+    static final String LOG_ID = "log";
+    static final String SAVE_ID = "save";
+
     private final Binder<RaceResult> binder;
 
-    private final DatePicker date = new DatePicker("Data");
+    private final DatePicker date = new DatePicker("Date");
     private final TextField team = new TextField("Team");
     private final IntegerField place = new IntegerField("Place");
     private final TextField duration = new TextField("Duration");
@@ -40,7 +48,7 @@ public class SpringBinderView extends VerticalLayout {
     public SpringBinderView(SpringBinder<RaceResult> binder) {
         this.binder = binder;
         Div log = new Div();
-        log.getElement().setAttribute("test-id", "log");
+        log.setId(LOG_ID);
         Button save = new Button("Save", e -> {
             log.removeAll();
             RaceResult result = new RaceResult();
@@ -48,6 +56,7 @@ public class SpringBinderView extends VerticalLayout {
                 log.setText(result.toString());
             }
         });
+        save.setId(SAVE_ID);
         add(date, team, place, duration, save, log);
         binder.setBean(new RaceResult());
 

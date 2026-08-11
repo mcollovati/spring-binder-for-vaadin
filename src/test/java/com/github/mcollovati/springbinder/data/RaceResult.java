@@ -68,4 +68,9 @@ public class RaceResult {
     public void setDate(Date date) {
         this.date = date;
     }
+
+    @Override
+    public String toString() {
+        return "RaceResult[date=" + date + ", team=" + team + ", place=" + place + ", duration=" + duration + "]";
+    }
 }

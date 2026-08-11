@@ -7,7 +7,6 @@ window.Vaadin.featureFlags.accessibleDisabledButtons = false;
 window.Vaadin.featureFlags.themeComponentStyles = false;
 window.Vaadin.featureFlags.tailwindCss = false;
 window.Vaadin.featureFlags.fullstackSignals = false;
-window.Vaadin.featureFlags.masterDetailLayoutComponent = false;
 window.Vaadin.featureFlags.layoutComponentImprovements = false;
 window.Vaadin.featureFlags.defaultAutoResponsiveFormLayout = false;
 };
