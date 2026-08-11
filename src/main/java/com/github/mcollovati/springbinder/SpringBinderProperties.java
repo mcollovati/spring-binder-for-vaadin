@@ -26,7 +26,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class SpringBinderProperties {
 
     /** Prefix of the add-on configuration properties. */
-    public static final String PREFIX = "vaadin-spring-binder";
+    public static final String PREFIX = "springbinder";
 
     private final Conversion conversion = new Conversion();
 
@@ -34,7 +34,7 @@ public class SpringBinderProperties {
         return conversion;
     }
 
-    /** Conversion settings, configured under {@code vaadin-spring-binder.conversion}. */
+    /** Conversion settings, configured under {@code springbinder.conversion}. */
     public static class Conversion {
 
         /**

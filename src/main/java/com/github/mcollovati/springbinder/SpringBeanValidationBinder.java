@@ -207,7 +207,7 @@ public class SpringBeanValidationBinder<BEAN> extends AbstractSpringBinder<BEAN>
                     .getParent()
                     .getType();
         }
-        Class<BEAN> knownBeanType = getBeanType().orElse(null);
+        Class<BEAN> knownBeanType = findBeanType().orElse(null);
         if (knownBeanType != null) {
             // Non nested properties must be defined in the main type
             return knownBeanType;

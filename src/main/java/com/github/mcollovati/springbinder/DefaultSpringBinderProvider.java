@@ -26,12 +26,18 @@ record DefaultSpringBinderProvider<BEAN>(Class<BEAN> beanType, SpringBinderFacto
         implements SpringBinderProvider<BEAN> {
 
     @Override
-    public SpringBinder<BEAN> get() {
-        return factory.create(beanType);
+    public ConversionOrder getConversionOrder() {
+        return factory.getConversionOrder();
     }
 
     @Override
-    public SpringBeanValidationBinder<BEAN> getBeanValidation() {
-        return factory.createBeanValidation(beanType);
+    public SpringBinder<BEAN> create(boolean scanNestedDefinitions, ConversionOrder conversionOrder) {
+        return factory.create(beanType, scanNestedDefinitions, conversionOrder);
+    }
+
+    @Override
+    public SpringBeanValidationBinder<BEAN> createBeanValidation(
+            boolean scanNestedDefinitions, ConversionOrder conversionOrder) {
+        return factory.createBeanValidation(beanType, scanNestedDefinitions, conversionOrder);
     }
 }

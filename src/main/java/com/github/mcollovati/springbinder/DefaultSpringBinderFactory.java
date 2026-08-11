@@ -43,34 +43,25 @@ class DefaultSpringBinderFactory implements SpringBinderFactory {
     }
 
     @Override
-    public <BEAN> SpringBinder<BEAN> create(Class<BEAN> beanType) {
-        return new SpringBinder<>(beanType, conversionService.get(), conversionOrder());
+    public ConversionOrder getConversionOrder() {
+        return properties.getConversion().getOrder();
     }
 
     @Override
-    public <BEAN> SpringBinder<BEAN> create(Class<BEAN> beanType, boolean scanNestedDefinitions) {
-        return new SpringBinder<>(beanType, scanNestedDefinitions, conversionService.get(), conversionOrder());
-    }
-
-    @Override
-    public <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(Class<BEAN> beanType) {
-        return new SpringBeanValidationBinder<>(
-                beanType, conversionService.get(), requireValidatorFactory().get(), conversionOrder());
+    public <BEAN> SpringBinder<BEAN> create(
+            Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionOrder conversionOrder) {
+        return new SpringBinder<>(beanType, scanNestedDefinitions, conversionService.get(), conversionOrder);
     }
 
     @Override
     public <BEAN> SpringBeanValidationBinder<BEAN> createBeanValidation(
-            Class<BEAN> beanType, boolean scanNestedDefinitions) {
+            Class<BEAN> beanType, boolean scanNestedDefinitions, ConversionOrder conversionOrder) {
         return new SpringBeanValidationBinder<>(
                 beanType,
                 scanNestedDefinitions,
                 conversionService.get(),
                 requireValidatorFactory().get(),
-                conversionOrder());
-    }
-
-    private ConversionOrder conversionOrder() {
-        return properties.getConversion().getOrder();
+                conversionOrder);
     }
 
     /**
