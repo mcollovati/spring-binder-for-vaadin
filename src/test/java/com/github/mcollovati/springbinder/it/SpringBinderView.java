@@ -42,6 +42,10 @@ public class SpringBinderView extends VerticalLayout {
      * {@code transient} because that is what a view should do, even though nothing here serializes a
      * session: session replication tooling re-injects a {@code transient} field that held a Spring bean,
      * so the field comes back as a usable binder instead of the inert one deserialization would give.
+     *
+     * <p>Everything below therefore goes through {@code this.binder} rather than the constructor
+     * parameter. A listener capturing the parameter would keep the binder it was built with, and carry
+     * on using that one after the field had been re-injected with a working replacement.
      */
     private final transient Binder<RaceResult> binder;
 
@@ -57,13 +61,13 @@ public class SpringBinderView extends VerticalLayout {
         Button save = new Button("Save", e -> {
             log.removeAll();
             RaceResult result = new RaceResult();
-            if (binder.writeBeanIfValid(result)) {
+            if (this.binder.writeBeanIfValid(result)) {
                 log.setText(result.toString());
             }
         });
         save.setId(SAVE_ID);
         add(date, team, place, duration, save, log);
-        binder.setBean(new RaceResult());
+        this.binder.setBean(new RaceResult());
 
         this.binder.bindInstanceFields(this);
     }
