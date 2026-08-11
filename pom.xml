@@ -43,6 +43,7 @@
         <maven-jar-plugin.version>3.5.0</maven-jar-plugin.version>
         <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
         <maven-javadoc-plugin.version>3.11.2</maven-javadoc-plugin.version>
+        <jreleaser-maven-plugin.version>1.25.0</jreleaser-maven-plugin.version>
 
         <assertj.version>3.27.7</assertj.version>
         <spotless.version>3.0.0</spotless.version>
@@ -295,6 +296,11 @@
             <!-- Artifacts required to publish to Maven Central. The Vaadin Directory
                  picks new versions up from Central automatically, so no zip is built. -->
             <id>release</id>
+            <properties>
+                <!-- The signing key is provided through environment variables by the workflow -->
+                <jreleaser.signing.mode>MEMORY</jreleaser.signing.mode>
+                <release.mavencentral.active>RELEASE</release.mavencentral.active>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -325,6 +331,64 @@
                         <configuration>
                             <quiet>true</quiet>
                             <additionalJOptions>-Xdoclint:none</additionalJOptions>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.jreleaser</groupId>
+                        <artifactId>jreleaser-maven-plugin</artifactId>
+                        <version>${jreleaser-maven-plugin.version}</version>
+                        <configuration>
+                            <jreleaser>
+                                <project>
+                                    <inceptionYear>2026</inceptionYear>
+                                </project>
+                                <release>
+                                    <github>
+                                        <owner>mcollovati</owner>
+                                        <name>spring-binder-for-vaadin</name>
+                                        <tagName>{{projectVersion}}</tagName>
+                                        <releaseName>Release {{tagName}}</releaseName>
+                                        <draft>false</draft>
+                                        <prerelease>
+                                            <pattern>.*-(alpha|beta|rc)\d+</pattern>
+                                        </prerelease>
+                                        <changelog>
+                                            <formatted>ALWAYS</formatted>
+                                            <preset>conventional-commits</preset>
+                                            <skipMergeCommits>true</skipMergeCommits>
+                                            <hide>
+                                                <categories>
+                                                    <category>merge</category>
+                                                    <category>build</category>
+                                                    <category>chore</category>
+                                                </categories>
+                                                <contributors>
+                                                    <contributor>GitHub</contributor>
+                                                    <contributor>[bot]</contributor>
+                                                </contributors>
+                                            </hide>
+                                        </changelog>
+                                    </github>
+                                </release>
+                                <signing>
+                                    <active>ALWAYS</active>
+                                    <pgp>
+                                        <mode>${jreleaser.signing.mode}</mode>
+                                        <armored>true</armored>
+                                    </pgp>
+                                </signing>
+                                <deploy>
+                                    <maven>
+                                        <mavenCentral>
+                                            <release>
+                                                <active>${release.mavencentral.active}</active>
+                                                <url>https://central.sonatype.com/api/v1/publisher</url>
+                                                <stagingRepositories>target/staging-deploy</stagingRepositories>
+                                            </release>
+                                        </mavenCentral>
+                                    </maven>
+                                </deploy>
+                            </jreleaser>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -1,0 +1,138 @@
+name: Release
+run-name: "Release ${{ inputs.version }} from ${{ inputs.target-branch }}${{ inputs.dry-run && ' (DRY RUN)' || '' }}"
+
+# Only users with write access can dispatch a workflow, which is what restricts who
+# can release. Secrets are read in the single job below and nowhere else.
+on:
+  workflow_dispatch:
+    inputs:
+      target-branch:
+        description: "Branch to release from"
+        required: true
+        type: choice
+        default: main
+        # Add maintenance branches here as they are created, named after the
+        # major.minor they carry, for example "1.1"
+        options:
+          - main
+      version:
+        description: "Version to release, for example 1.0.0 or 1.1.0-rc1"
+        required: true
+        type: string
+      dry-run:
+        description: "Dry run: build and sign, but publish nothing"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: refs/heads/${{ inputs.target-branch }}
+          # The changelog is built from the commit history
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Validate version
+        env:
+          CMD_VERSION: ${{ inputs.version }}
+          CMD_TARGET_BRANCH: ${{ inputs.target-branch }}
+        run: |
+          set -e -o pipefail
+          VERSION_REGEX='^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)[0-9]+)?$'
+          if [[ ! "$CMD_VERSION" =~ $VERSION_REGEX ]]; then
+            echo "🚫 '$CMD_VERSION' is not a valid version. Use 1.2.3 or 1.2.3-rc1." \
+              | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/$CMD_VERSION" > /dev/null; then
+            echo "🚫 Version '$CMD_VERSION' has already been released." | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # The version must belong to the branch it is released from, so that a
+          # maintenance release cannot be cut from main by mistake, and the other way round.
+          # Releasing a new major or minor therefore means bumping the version on main first.
+          POM_VERSION=$(mvn -B -ntp -q help:evaluate -Dexpression=project.version -DforceStdout)
+          POM_SERIES=${POM_VERSION%-SNAPSHOT}
+          POM_SERIES=$(cut -d. -f1,2 <<< "$POM_SERIES")
+          VERSION_SERIES=$(cut -d. -f1,2 <<< "$CMD_VERSION")
+          if [[ "$VERSION_SERIES" != "$POM_SERIES" ]]; then
+            echo "🚫 Version '$CMD_VERSION' does not belong to the '$POM_SERIES' series declared by the pom of branch '$CMD_TARGET_BRANCH' ($POM_VERSION)." \
+              | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          if [[ "$CMD_TARGET_BRANCH" != "main" && "$CMD_TARGET_BRANCH" != "$POM_SERIES" ]]; then
+            echo "🚫 Branch '$CMD_TARGET_BRANCH' carries the '$POM_SERIES' series, so it is not named after it." \
+              | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "Releasing $CMD_VERSION from $CMD_TARGET_BRANCH (pom is at $POM_VERSION)." | tee -a $GITHUB_STEP_SUMMARY
+
+      - name: Set release version
+        env:
+          CMD_VERSION: ${{ inputs.version }}
+        run: mvn -B -ntp versions:set -DnewVersion="$CMD_VERSION" -DgenerateBackupPoms=false
+
+      - name: Build, test and stage artifacts
+        run: |
+          mvn -V -e -B -ntp -Prelease \
+            -DaltDeploymentRepository=local::file:./target/staging-deploy \
+            deploy
+
+      - name: Publish
+        env:
+          JRELEASER_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JRELEASER_MAVENCENTRAL_RELEASE_USERNAME: ${{ secrets.JRELEASER_NEXUS2_MAVEN_CENTRAL_USERNAME }}
+          JRELEASER_MAVENCENTRAL_RELEASE_TOKEN: ${{ secrets.JRELEASER_NEXUS2_MAVEN_CENTRAL_PASSWORD }}
+          JRELEASER_GPG_PUBLIC_KEY: ${{ secrets.JRELEASER_GPG_PUBLIC_KEY }}
+          JRELEASER_GPG_SECRET_KEY: ${{ secrets.JRELEASER_GPG_SECRET_KEY }}
+          JRELEASER_GPG_PASSPHRASE: ${{ secrets.JRELEASER_GPG_PASSPHRASE }}
+          CMD_DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          mvn -V -e -B -ntp -Prelease \
+            -Djreleaser.dry.run="$CMD_DRY_RUN" \
+            jreleaser:full-release
+
+      - name: Upload JReleaser output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jreleaser-output
+          path: |
+            target/jreleaser/trace.log
+            target/jreleaser/output.properties
+          retention-days: 14
+
+      - name: Summary
+        if: success()
+        env:
+          CMD_VERSION: ${{ inputs.version }}
+          CMD_DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          if [[ "$CMD_DRY_RUN" == "true" ]]; then
+            echo "⚠️ Dry run: nothing was published." | tee -a $GITHUB_STEP_SUMMARY
+          else
+            {
+              echo "✅ Released $CMD_VERSION to Maven Central."
+              echo ""
+              echo "The Vaadin Directory picks new versions up from Central on a schedule, usually within 30 minutes."
+              echo "First release only: add the add-on at https://vaadin.com/directory/my-components?uploadNewComponent"
+              echo "using the Maven coordinates com.github.mcollovati:spring-binder-for-vaadin."
+            } | tee -a $GITHUB_STEP_SUMMARY
+          fi
