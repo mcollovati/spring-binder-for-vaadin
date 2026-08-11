@@ -66,6 +66,9 @@ public class SpringBeanValidationBinderTest extends SpringBinderTest {
     @Autowired
     ValidatorFactory validatorFactory;
 
+    @Autowired
+    ConversionService conversionService;
+
     private Locale defaultLocale;
 
     /**
@@ -121,6 +124,57 @@ public class SpringBeanValidationBinderTest extends SpringBinderTest {
         form.team.setValue("TOO_LONG_TEAM_NAME"); // too long
 
         assertInvalid(form.team, binder, "size must be between 3 and 10");
+    }
+
+    /**
+     * Constraints on a nested property belong to the nested type, not to the root bean, so the
+     * validator has to be created for the type actually declaring the property.
+     */
+    @Test
+    void nestedProperty_validatorUsesTheDeclaringType() {
+        SpringBeanValidationBinder<RaceResult> binder =
+                new SpringBeanValidationBinder<>(RaceResult.class, true, conversionService, validatorFactory);
+        TestField<String> timeUnit = new TestField<>(String.class, null);
+        binder.forField(timeUnit).bind("duration.timeUnit");
+        binder.setBean(new RaceResult("TEAM1", 3, new Duration(120, "M")));
+
+        timeUnit.setValue("");
+
+        assertInvalid(timeUnit, binder, "must not be empty");
+    }
+
+    /**
+     * The required indicator is only shown when the empty value of the field would itself break the
+     * constraint, which is why the fields below start empty rather than null.
+     */
+    static class RequiredForm {
+        TestField<String> team = new TestField<>(String.class, "");
+        TestField<String> duration = new TestField<>(String.class, "");
+    }
+
+    @Test
+    void requiredIndicator_setFromConstraints() {
+        SpringBeanValidationBinder<RaceResult> binder =
+                new SpringBeanValidationBinder<>(RaceResult.class, conversionService, validatorFactory);
+        RequiredForm form = new RequiredForm();
+
+        binder.bindInstanceFields(form);
+
+        Assertions.assertTrue(form.team.isRequiredIndicatorVisible(), "team is annotated with @Size(min = 3)");
+        Assertions.assertFalse(form.duration.isRequiredIndicatorVisible(), "duration has no constraint of its own");
+    }
+
+    @Test
+    void requiredIndicator_notConfiguredWhenConfiguratorIsNull() {
+        SpringBeanValidationBinder<RaceResult> binder =
+                new SpringBeanValidationBinder<>(RaceResult.class, conversionService, validatorFactory);
+        binder.setRequiredConfigurator(null);
+        RequiredForm form = new RequiredForm();
+
+        binder.bindInstanceFields(form);
+
+        Assertions.assertNull(binder.getRequiredConfigurator());
+        Assertions.assertFalse(form.team.isRequiredIndicatorVisible());
     }
 
     private void assertInvalid(TestField field, Binder<?> binder, String message) {
