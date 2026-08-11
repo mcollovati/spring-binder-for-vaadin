@@ -23,7 +23,7 @@
     </developers>
     <licenses>
         <license>
-            <name>Apache 2</name>
+            <name>Apache-2.0</name>
             <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
             <distribution>repo</distribution>
         </license>
@@ -366,7 +366,7 @@
                                                 <categories>
                                                     <category>merge</category>
                                                     <category>build</category>
-                                                    <category>chore</category>
+                                                    <category>tasks</category>
                                                 </categories>
                                                 <contributors>
                                                     <contributor>GitHub</contributor>
