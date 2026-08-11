@@ -115,9 +115,62 @@ To resolve messages from a Spring `MessageSource` instead, expose a
 `setValidationMessageSource(messageSource)`.
 
 Injecting the base `Binder<T>` also works: it resolves to
-`SpringBeanValidationBinder` when a `ValidatorFactory` bean exists and to
+`SpringBeanValidationBinder` when a JSR-303 provider is available and to
 `SpringBinder` otherwise. Inject a concrete type when you want to be explicit
 about which one you get.
+
+## More than one binder, or a component Spring does not manage
+
+An injected binder is one binder. That is the wrong shape in two common cases:
+a component that builds a form per row of a grid, and a form component created
+with `new`, which Spring never sees.
+
+Do **not** reuse a single injected binder for several rows. Vaadin's `Binder`
+lets the same property be bound more than once, so it compiles, starts, and then
+silently has every row read and write the same bean.
+
+When the bean type is known at the injection point, inject a
+`SpringBinderProvider<T>` and ask it for one binder per form:
+
+```java
+@Route("admin")
+public class AdminView extends VerticalLayout {
+
+    private final SpringBinderProvider<Category> binders;
+
+    public AdminView(SpringBinderProvider<Category> binders) {
+        this.binders = binders;
+    }
+
+    private Component createCategoryEditor(Category category) {
+        SpringBeanValidationBinder<Category> binder = binders.getBeanValidation();
+        ...
+    }
+}
+```
+
+When the component is not a Spring bean, or needs binders for several bean
+types, inject the `SpringBinderFactory` singleton and pass it down:
+
+```java
+class OrderItemsEditor {
+
+    private final SpringBinderFactory binders;
+
+    OrderItemsEditor(SpringBinderFactory binders) {
+        this.binders = binders;
+    }
+
+    private OrderItemEditor createEditor() {
+        return new OrderItemEditor(binders.createBeanValidation(OrderItem.class));
+    }
+}
+```
+
+Both create binders wired exactly like injected ones — same `ConversionService`,
+same conversion order, same `ValidatorFactory` — so the factory is also the way
+to build binders in tests, instead of calling a constructor and getting
+different conversion behaviour than production.
 
 ## Conversion precedence
 

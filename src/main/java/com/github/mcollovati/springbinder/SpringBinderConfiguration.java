@@ -56,6 +56,37 @@ public class SpringBinderConfiguration {
                 properties.getConversion().getOrder());
     }
 
+    /**
+     * A component that builds one form per row, or that Spring does not manage at all, cannot get its
+     * binders from an injection point. The factory covers both: it is a singleton, so it can be
+     * passed to hand constructed components, and it creates as many binders as needed, for any bean
+     * type, with the wiring injected binders get.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    SpringBinderFactory springBinderFactory(
+            @BinderConversionService ObjectProvider<ConversionService> binderConversionService,
+            ObjectProvider<ConversionService> conversionService,
+            ObjectProvider<BinderValidatorFactory> validatorFactory,
+            SpringBinderProperties properties) {
+        return new DefaultSpringBinderFactory(
+                () -> resolveConversionService(binderConversionService, conversionService),
+                validatorFactory,
+                properties);
+    }
+
+    /**
+     * The typed counterpart of {@link SpringBinderFactory}, for components that need several binders
+     * but only ever for the bean type named at their injection point.
+     */
+    @Bean
+    @Scope(BeanDefinition.SCOPE_PROTOTYPE)
+    @ConditionalOnMissingBean
+    <BEAN> SpringBinderProvider<BEAN> createBinderProvider(
+            DependencyDescriptor descriptor, SpringBinderFactory factory) {
+        return new DefaultSpringBinderProvider<>(beanType(descriptor), factory);
+    }
+
     @Bean
     @ConditionalOnMissingBean(ConversionService.class)
     ConversionServiceFactoryBean conversionServiceFactoryBean() {
