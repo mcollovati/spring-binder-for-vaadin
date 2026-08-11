@@ -380,6 +380,64 @@ from the converter's own class, which a lambda or a method reference does not
 declare, and passing one throws `IllegalArgumentException: Unable to determine
 source type <S> and target type <T> for your Converter`.
 
+## Known limitations
+
+### Spring conversion applies to `bindInstanceFields()`, not to `bind("property")`
+
+Vaadin asks the converter factory for a converter only when it binds a property by
+name from `bindInstanceFields()`. These do **not** get a Spring converter, and fail
+with a bare `ClassCastException` out of `setBean` when the field and property types
+differ:
+
+```java
+binder.bind(durationField, "duration");                  // no Spring conversion
+binder.forField(durationField).bind("duration");         // no Spring conversion
+```
+
+Bind the form as a whole, which is the documented usage:
+
+```java
+binder.bindInstanceFields(form);                         // Spring conversion applies
+```
+
+or name the converter yourself for that one binding:
+
+```java
+binder.forField(durationField)
+        .withConverter(Duration::valueOf, Duration::toString)
+        .bind(RaceResult::getDuration, RaceResult::setDuration);
+```
+
+### Annotation-driven formatting is not supported
+
+`@DateTimeFormat`, `@NumberFormat` and `@DurationFormat` on a bean property are
+**silently ignored**. Spring registers those as conditional converters keyed on the
+annotation, which needs a property-level `TypeDescriptor`; Vaadin's converter factory
+SPI passes only the two `Class` objects, so there is nothing to match the annotation
+against. Register a `Converter` or `Formatter` bean for the type instead, or name a
+converter on the binding as above.
+
+For the same reason, `spring.mvc.format.*` reaches only the type pairs Vaadin does
+*not* already handle — see [Conversion precedence](#conversion-precedence).
+
+### Rough edges
+
+Reported, and worth knowing while this is a pre-release:
+
+- Declaring a binder bean of your own — `@Bean SpringBinder<Invoice>` — switches off
+  the auto-configured binder for *every* bean type, since the condition matches the
+  raw type. Injecting `SpringBinder<Order>` then fails at startup.
+- Properties with type parameters are converted without them, so a `List<Integer>`
+  property can be given a `List<String>` with no error, and the `ClassCastException`
+  arrives much later.
+- A type with a `valueOf`/`of`/`from` factory whose `toString()` is not the exact
+  inverse — a record, typically — can bind to a field that is permanently invalid,
+  because Spring reports both directions as convertible through `toString()`.
+- A converter that throws while writing *to* the field breaks `setBean` and
+  `readBean` outright, instead of showing an error on the field.
+- Conversion errors show the underlying exception message, which is neither
+  localizable nor overridable.
+
 ## Building
 
 ```bash

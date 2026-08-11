@@ -34,9 +34,24 @@ import org.springframework.core.convert.ConversionService;
  * ConversionService} and {@link ValidatorFactory}. The Binder automatically adds {@link
  * BeanValidator} which validates beans using JSR-303 specification.
  *
- * <p>Spring {@link ConversionService} is used to provide suitable converters for bindings * when
- * presentation and model types are not compatible. The {@link ValidatorFactory} enables JSR-303
- * validation.
+ * <p>Spring {@link ConversionService} supplies the converter when the type of a field and the type of
+ * the property it is bound to differ, and the {@link ValidatorFactory} enables JSR-303 validation.
+ * Conversion applies to the properties bound by {@code bindInstanceFields}; {@code bind(field,
+ * "property")} and {@code forField(field).bind("property")} do not consult it, and fail on a type
+ * mismatch as they would without this add-on. Validation, unlike conversion, applies to all of them.
+ *
+ * <h2>Session serialization</h2>
+ *
+ * <p>This binder is serializable, but neither the {@link ConversionService} it converts through nor the
+ * {@link ValidatorFactory} it validates with is, so both are {@code transient}. A binder that comes back
+ * from a serialized session <strong>can neither convert nor validate</strong>: the first attempt fails
+ * with an {@link IllegalStateException} saying so, and the validators its bindings carry do the same.
+ *
+ * <p>Declaring the field that holds it {@code transient} does not keep it out of the session — Vaadin
+ * registers a value change listener on every bound field and that listener holds the binder — so a view
+ * that survives session serialization has to build its form again rather than reuse what came back.
+ * {@link AbstractSpringBinder} has the full contract, including what session replication tooling
+ * changes about it.
  *
  * @param <BEAN> the type of the bean.
  *
