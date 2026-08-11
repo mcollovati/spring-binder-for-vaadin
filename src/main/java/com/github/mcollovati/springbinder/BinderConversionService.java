@@ -36,18 +36,24 @@ import org.springframework.core.convert.ConversionService;
  * <pre>{@code
  * @Bean
  * @BinderConversionService
- * ConversionService binderConversions(Converter<String, Duration> toDuration,
- *         Converter<Duration, String> fromDuration) {
+ * ConversionService binderConversions() {
  *     GenericConversionService conversions = new GenericConversionService();
- *     conversions.addConverter(toDuration);
- *     conversions.addConverter(fromDuration);
+ *     conversions.addConverter(String.class, Duration.class, Duration::valueOf);
+ *     conversions.addConverter(Duration.class, String.class, Duration::toString);
  *     return conversions;
  * }
  * }</pre>
  *
- * <p>When no such bean exists the binders use the application's {@link ConversionService}, and when
- * that one is ambiguous or missing they fall back to {@link
- * org.springframework.core.convert.support.DefaultConversionService#getSharedInstance()}.
+ * <p>The source and target types are named explicitly because {@link
+ * org.springframework.core.convert.support.GenericConversionService#addConverter(org.springframework.core.convert.converter.Converter)
+ * addConverter(Converter)} reads them from the converter's own class, which a lambda or a method
+ * reference does not declare. Passing one throws {@code IllegalArgumentException: Unable to determine
+ * source type <S> and target type <T> for your Converter}.
+ *
+ * <p>Only one bean may carry this qualifier, since it names a single conversion service; several fail
+ * the context at startup. When no bean carries it the binders use the application's {@link
+ * ConversionService}, and when that one is ambiguous or missing, a conversion service built by the
+ * add-on from the application's {@code Converter} and {@code Formatter} beans.
  */
 @Qualifier @Documented
 @Retention(RetentionPolicy.RUNTIME)
